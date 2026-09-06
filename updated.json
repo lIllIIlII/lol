@@ -1,7 +1,7 @@
 {
-  "version": "1.3.9",
+  "version": "1.4.0",
   "date": "2026-09-06",
-  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.3.9/XiXiAt_1.3.9.apk",
-  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.3.9/XiXiAt_1.3.9.apk",
-  "notes": "v1.3.9：弹窗排队不再重叠；启动背景闪烁修复；壁纸全面本地化（不再下载到相册）；关于页恢复横版主视觉；修复网盘解析出现大量未知文件夹；新增汇报日志与开源网址；全新应用图标；启动静默检测新版本。"
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.4.0/XiXiAt_1.4.0.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.4.0/XiXiAt_1.4.0.apk",
+  "notes": "v1.4.0：小飞机网盘文件夹解析根治（不再出现无数未知文件夹，可正常进入文件夹与下载）；蓝奏云解析网络错误修复（智能 DNS 防污染，明确提示切换网络）；新增蓝奏云优享版(ilanzou.com)解析支持；赞赏码更新；「汇报日志」改为扫码加开发者微信/QQ 好友直接反馈。"
 }
