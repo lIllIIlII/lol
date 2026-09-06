@@ -111,7 +111,6 @@ import com.yunx.app.data.prefs.SettingsRepository
 import com.yunx.app.data.update.UpdateChecker
 import com.yunx.app.ui.SnackbarController
 import com.yunx.app.util.LogExporter
-import com.yunx.app.util.LogReportManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -158,6 +157,8 @@ fun SettingsScreen(
     onThemeClick: () -> Unit,
     onAboutClick: () -> Unit,
     onSupportClick: () -> Unit,
+    /** 反馈联系页（扫码加开发者好友，v1.4.0 起替代 SMTP 邮件上报） */
+    onFeedbackClick: () -> Unit,
     backupManager: AuthBackupManager,
     /** 用应用内置下载器下载更新 APK（URL + 文件名），由 MainScreen 注入 DownloadManager */
     onDownloadUpdateApk: (url: String, fileName: String) -> Unit,
@@ -180,11 +181,6 @@ fun SettingsScreen(
     var showPlatformThreadDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // 汇报日志：QQ 号输入 + 发送状态（context 声明后初始化，回填上次填写）
-    var showReportDialog by remember { mutableStateOf(false) }
-    var reportQq by remember { mutableStateOf(LogReportManager.lastQq(context)) }
-    var reportSending by remember { mutableStateOf(false) }
-    var reportStatus by remember { mutableStateOf<String?>(null) }
     // 下载保存目录（SAF）：本地状态驱动 UI 刷新，同时同步 SharedPreferences
     val settingsRepo = remember { SettingsRepository(context) }
     var downloadDirUri by remember { mutableStateOf(settingsRepo.downloadDirUri) }
@@ -443,12 +439,9 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(8.dp))
         SettingsItem(
             icon = Icons.Outlined.Mail,
-            title = "汇报日志",
-            description = "填写 QQ 号，自动将日志发送到开发者邮箱",
-            onClick = {
-                reportStatus = null
-                showReportDialog = true
-            }
+            title = "反馈联系（原汇报日志）",
+            description = "扫微信 / QQ 二维码加开发者好友，直接反馈问题",
+            onClick = onFeedbackClick
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -572,82 +565,6 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showLogDialog = false }) { Text("取消") }
-            }
-        )
-    }
-
-    // 汇报日志弹窗：填写 QQ 号 → 自动发送到开发者邮箱（3395858053@qq.com）
-    if (showReportDialog) {
-        AlertDialog(
-            onDismissRequest = { if (!reportSending) showReportDialog = false },
-            title = { Text("汇报日志") },
-            text = {
-                Column {
-                    Text(
-                        text = "填写你已绑定 QQ 邮箱的 QQ 号，日志将自动发送至开发者邮箱 3395858053@qq.com（日志已自动脱敏，不含 Cookie 等敏感信息）。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = reportQq,
-                        onValueChange = { input ->
-                            reportQq = input.filter { it.isDigit() }.take(12)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("QQ 号（选填）") },
-                        placeholder = { Text("用于开发者回复你") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        enabled = !reportSending
-                    )
-                    reportStatus?.let { status ->
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = status,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = !reportSending,
-                    onClick = {
-                        val qq = reportQq.trim()
-                        LogReportManager.saveQq(context, qq)
-                        scope.launch {
-                            reportSending = true
-                            reportStatus = "正在自动发送…"
-                            val smtpResult = LogReportManager.sendViaSmtp(context, qq)
-                            reportSending = false
-                            smtpResult.onSuccess {
-                                reportStatus = "已发送至 3395858053@qq.com ✓"
-                                SnackbarController.show("日志已发送，感谢反馈")
-                            }.onFailure { e ->
-                                // SMTP 未配置/失败 → mailto 兜底（自动填好收件人与正文）
-                                reportStatus = "自动通道不可用（${e.message}），已打开邮件客户端，请点击发送"
-                                val opened = LogReportManager.openMailto(context, qq)
-                                if (!opened) {
-                                    SnackbarController.show("自动发送失败，且未找到邮件应用")
-                                }
-                            }
-                        }
-                    }
-                ) {
-                    if (reportSending) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                    }
-                    Text("发送")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    enabled = !reportSending,
-                    onClick = { showReportDialog = false }
-                ) { Text("取消") }
             }
         )
     }

@@ -34,8 +34,8 @@ android {
         applicationId = "com.ccat.pan"
         minSdk = 23
         targetSdk = 34
-        versionCode = 19
-        versionName = "1.3.9"
+        versionCode = 20
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

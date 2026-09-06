@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -60,6 +61,9 @@ object LanzouApi {
 
     private val apiClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            // 蓝奏云家族域名在部分运营商网络被 DNS 污染（系统解析返回假 IP → 连接超时 →
+            // 应用报「网络错误」但其他网盘正常）：DoH 真实 IP 优先 + 系统 DNS 兜底
+            .dns(SmartDns)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
@@ -107,20 +111,36 @@ object LanzouApi {
         return b
     }
 
-    /** GET 页面：自动解算 acw_sc__v2 挑战并重试（最多 2 轮） */
+    /** GET 页面：自动解算 acw_sc__v2 挑战并重试（最多 2 轮）；网络异常转译为可读提示 */
     private suspend fun getHtml(url: String, referer: String, accountCookie: String?): String = withContext(Dispatchers.IO) {
         var acw: String? = null
         repeat(3) {
             val req = Request.Builder().url(url).headers(baseHeaders(referer, acw, accountCookie).build()).get().build()
-            val body = apiClient.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext ""
-                resp.body?.string() ?: ""
-            }
+            val body = runCatching {
+                apiClient.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@withContext ""
+                    resp.body?.string() ?: ""
+                }
+            }.getOrElse { e -> throw translateNetworkError(e, url) }
             val challenge = acwRegex.find(body)?.groupValues?.getOrNull(1)
             if (challenge == null || acw != null) return@withContext body
             acw = calcAcwScV2(challenge) ?: return@withContext body
         }
         ""
+    }
+
+    /** 网络异常 → 用户可读提示（区分 DNS 污染 / 连接阻断，指导切换网络） */
+    private fun translateNetworkError(e: Throwable, url: String): IllegalStateException {
+        val host = runCatching { url.toHttpUrlOrNull()?.host ?: url }.getOrDefault(url)
+        return when {
+            e is java.net.UnknownHostException ->
+                IllegalStateException("域名解析失败（$host）。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试")
+            e is java.net.SocketTimeoutException || e is java.net.ConnectException ->
+                IllegalStateException("连接 $host 超时/被拒。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试")
+            e is javax.net.ssl.SSLException ->
+                IllegalStateException("与 $host 的安全连接被中断，请切换网络后重试")
+            else -> IllegalStateException("网络异常：${e.message ?: e.javaClass.simpleName}，请重试")
+        }
     }
 
     /** POST 表单：自动处理响应中的 acw 挑战重试 */

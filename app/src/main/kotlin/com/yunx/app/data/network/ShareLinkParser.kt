@@ -19,7 +19,7 @@
 package com.yunx.app.data.network
 
 /** 网盘平台 */
-enum class SharePlatform { QUARK, UC, XUNLEI, BAIDU, C139, PAN123, LANZOU, COWTRANSFER, FEIJI }
+enum class SharePlatform { QUARK, UC, XUNLEI, BAIDU, C139, PAN123, LANZOU, ILANZOU, COWTRANSFER, FEIJI }
 
 /**
  * 解析结果：share_id + 提取码 + 平台。
@@ -50,10 +50,16 @@ object ShareLinkParser {
     private val pan123ShareIdRegex = Regex("""123(?:865|pan)\.(?:com|cn)/s/([A-Za-z0-9]+-[A-Za-z0-9]+)""", RegexOption.IGNORE_CASE)
     private val pan123ShareSubRegex = Regex("""share\.123pan\.cn/123pan/([A-Za-z0-9-]+)""", RegexOption.IGNORE_CASE)
     private val pan123SrrRegex = Regex("""api/srr\?sk=([A-Za-z0-9-]+)""", RegexOption.IGNORE_CASE)
+    // 蓝奏云优享版（www.ilanzou.com）：SPA 新站，走 apix.ilanzou.com 接口（与经典蓝奏云不同源）
+    // 必须优先于经典蓝奏云正则匹配，否则会被 lanzou 家族正则吞掉走错解析器
+    private val ilanzouShareIdRegex = Regex(
+        """ilanzou[a-z]{0,2}\.(?:com|cn|net)/(?:s/)?([A-Za-z][0-9A-Za-z_-]{5,})""",
+        RegexOption.IGNORE_CASE
+    )
     // 蓝奏云：域名家族 lanzou[a-z]?.com/.cn/.net（wwbll.lanzoul.com / wwapg.lanzoub.com / wwm.lanzouv.com 等）
-    // 分享 ID 一般以 b/i/a 开头（b0188jmrwj、iJPKr0dzhtni）；ilanzou 新域名一并兼容
+    // 分享 ID 一般以 b/i/a 开头（b0188jmrwj、iJPKr0dzhtni）；ilanzou 已单列，不在此匹配
     private val lanzouShareIdRegex = Regex(
-        """(?:[0-9A-Za-z]+\.)?(?:i?lanzo[u]?[a-z]{0,2})\.(?:com|cn|net)/(?:s/)?([A-Za-z][0-9A-Za-z_-]{4,})""",
+        """(?:[0-9A-Za-z]+\.)?(?:lanzo[u]?[a-z]{0,2})\.(?:com|cn|net)/(?:s/)?([A-Za-z][0-9A-Za-z_-]{4,})""",
         RegexOption.IGNORE_CASE
     )
     // 奶牛快传：https://cowtransfer.com/s/2f1b183a5ed548（14 位 hex，新链接也可能是更长 UUID 形态）
@@ -115,6 +121,14 @@ object ShareLinkParser {
             val pwd = pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)
                 ?: pwdInTextRegex.find(text)?.groupValues?.getOrNull(1)
             return ParsedShare(shareId = sid, pwd = pwd, platform = SharePlatform.PAN123)
+        }
+        // 蓝奏云优享版链接（先于经典蓝奏云匹配；?pwd= / ?code= 或文案提取码均支持）
+        ilanzouShareIdRegex.find(url)?.groupValues?.getOrNull(1)?.let { sid ->
+            if (sid.length < 6) return@let
+            val pwd = pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)
+                ?: codeInUrlRegex.find(url)?.groupValues?.getOrNull(1)
+                ?: pwdInTextRegex.find(text)?.groupValues?.getOrNull(1)
+            return ParsedShare(shareId = sid, pwd = pwd, platform = SharePlatform.ILANZOU)
         }
         // 蓝奏云链接（域名家族多，见 lanzouShareIdRegex 注释；?pwd= 或文案提取码均支持）
         lanzouShareIdRegex.find(url)?.groupValues?.getOrNull(1)?.let { sid ->

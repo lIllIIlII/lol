@@ -273,6 +273,7 @@ private fun PlatformCard() {
         "139 网盘" to Icons.Outlined.Cloud,
         "123云盘" to Icons.Outlined.Cloud,
         "蓝奏云" to Icons.Outlined.Link,
+        "蓝奏云优享版" to Icons.Outlined.Link,
         "奶牛快传" to Icons.Outlined.Link,
         "小飞机网盘" to Icons.Outlined.Link
     )

@@ -103,8 +103,9 @@ import com.yunx.app.data.repository.Pan123ResolveRepository
 import com.yunx.app.data.repository.QuarkAccountRepository
 import com.yunx.app.data.repository.QuarkResolveRepository
 import com.yunx.app.data.repository.CowTransferResolveRepository
-import com.yunx.app.data.repository.FeijiResolveRepository
 import com.yunx.app.data.repository.LanzouResolveRepository
+import com.yunx.app.data.repository.WsDiskResolveRepository
+import com.yunx.app.data.network.WsDiskApi
 import com.yunx.app.data.repository.SimpleAccountRepository
 import com.yunx.app.data.repository.UCAccountRepository
 import com.yunx.app.data.repository.UCResolveRepository
@@ -130,6 +131,7 @@ import com.yunx.app.ui.screens.OnboardingScreen
 import com.yunx.app.ui.screens.ResolveScreen
 import com.yunx.app.ui.screens.SettingsScreen
 import com.yunx.app.ui.screens.SupportScreen
+import com.yunx.app.ui.screens.FeedbackScreen
 import com.yunx.app.ui.screens.ThemeScreen
 import com.yunx.app.ui.screens.StartupDialogKind
 import com.yunx.app.ui.screens.StartupDialogQueue
@@ -184,6 +186,7 @@ fun MainScreen() {
     var showPan123Login by rememberSaveable { mutableStateOf(false) }
     var showAbout by rememberSaveable { mutableStateOf(false) }
     var showSupport by rememberSaveable { mutableStateOf(false) }
+    var showFeedback by rememberSaveable { mutableStateOf(false) }
     var showTheme by rememberSaveable { mutableStateOf(false) }
     var showBookmarks by rememberSaveable { mutableStateOf(false) }
     val saveableStateHolder = rememberSaveableStateHolder()
@@ -248,7 +251,9 @@ fun MainScreen() {
         cookieProvider = { simpleRepository.getAccount(com.yunx.app.data.repository.SimpleNetdisk.LANZOU)?.cookie }
     ) }
     val cowTransferResolveRepository = remember { CowTransferResolveRepository() }
-    val feijiResolveRepository = remember { FeijiResolveRepository() }
+    // 小飞机 / 蓝奏云优享版：同源 WsDisk 协议引擎（v1.4.0 重写，根治未知文件夹）
+    val feijiResolveRepository = remember { WsDiskResolveRepository(WsDiskApi.FEIJI) }
+    val ilanzouResolveRepository = remember { WsDiskResolveRepository(WsDiskApi.ILANZOU) }
     // 网盘认证备份：打包/恢复各平台凭证
     val backupManager = remember {
         AuthBackupManager(
@@ -455,6 +460,7 @@ fun MainScreen() {
             lanzouResolveRepository,
             cowTransferResolveRepository,
             feijiResolveRepository,
+            ilanzouResolveRepository,
             downloadManager,
             db.bookmarkDao()
         )
@@ -747,6 +753,7 @@ fun MainScreen() {
                         onThemeClick = { showTheme = true },
                         onAboutClick = { showAbout = true },
                         onSupportClick = { showSupport = true },
+                        onFeedbackClick = { showFeedback = true },
                         backupManager = backupManager,
                         onDownloadUpdateApk = { url, name ->
                             scope.launch {
@@ -848,6 +855,18 @@ fun MainScreen() {
     ) {
         SupportScreen(
             onBack = { showSupport = false }
+        )
+    }
+
+    // 反馈联系（原汇报日志）：叠加覆盖层（淡入 + 轻微缩放过渡）
+    AnimatedVisibility(
+        visible = showFeedback,
+        enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),
+        exit = fadeOut(tween(160)) + scaleOut(tween(160), targetScale = 0.96f),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        FeedbackScreen(
+            onBack = { showFeedback = false }
         )
     }
 

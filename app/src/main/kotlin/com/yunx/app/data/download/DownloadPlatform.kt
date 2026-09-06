@@ -35,6 +35,8 @@ object DownloadPlatform {
     const val COWTRANSFER = "cowtransfer"
     /** 小飞机网盘直链 */
     const val FEIJI = "feiji"
+    /** 蓝奏云优享版直链 */
+    const val ILANZOU = "ilanzou"
     /** 通用/未知来源（手动添加、应用更新下载等） */
     const val GENERIC = "generic"
 }

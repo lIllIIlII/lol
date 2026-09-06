@@ -506,6 +506,7 @@ private fun platformLabel(platform: SharePlatform): String = when (platform) {
     SharePlatform.C139 -> "139 网盘"
     SharePlatform.PAN123 -> "123云盘"
     SharePlatform.LANZOU -> "蓝奏云"
+    SharePlatform.ILANZOU -> "蓝奏云优享版"
     SharePlatform.COWTRANSFER -> "奶牛快传"
     SharePlatform.FEIJI -> "小飞机网盘"
 }
