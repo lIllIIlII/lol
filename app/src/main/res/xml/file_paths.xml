@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
+    Copyright (C) 2026 CYQawa
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
+
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<!-- FileProvider 共享路径：导出日志、打开/安装已下载文件等场景使用 -->
+<paths>
+    <!-- 内部缓存目录：cacheDir/logs -->
+    <cache-path name="cache_logs" path="logs/" />
+    <!-- 崩溃日志目录：filesDir/crash -->
+    <files-path name="files_crash" path="crash/" />
+    <!-- 公共下载目录：Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)（Android 9- 保存位置） -->
+    <external-path name="downloads" path="Download/" />
+    <!-- 兜底：外部存储根下其他目录（部分设备下载目录路径差异） -->
+    <external-path name="external_files" path="." />
+</paths>

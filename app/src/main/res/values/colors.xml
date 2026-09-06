@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    吸析At - 基础颜色资源
+-->
+<resources>
+    <!-- 冷启动窗口背景（与壁纸深色基调一致，避免闪白/闪错色） -->
+    <color name="splash_dark">#10131A</color>
+</resources>

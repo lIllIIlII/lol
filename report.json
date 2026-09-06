@@ -1,0 +1,7 @@
+{
+  "smtp_user": "",
+  "smtp_auth_code": "",
+  "to": "3395858053@qq.com",
+  "smtp_host": "smtp.qq.com",
+  "smtp_port": 465
+}

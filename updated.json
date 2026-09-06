@@ -1,4 +1,7 @@
 {
-1.3.6,
-2026.9.6
+  "version": "1.3.9",
+  "date": "2026-09-06",
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.3.9/XiXiAt_1.3.9.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.3.9/XiXiAt_1.3.9.apk",
+  "notes": "v1.3.9：弹窗排队不再重叠；启动背景闪烁修复；壁纸全面本地化（不再下载到相册）；关于页恢复横版主视觉；修复网盘解析出现大量未知文件夹；新增汇报日志与开源网址；全新应用图标；启动静默检测新版本。"
 }
