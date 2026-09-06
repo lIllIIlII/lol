@@ -60,6 +60,9 @@ object HttpClients {
 
     private fun buildApi(): OkHttpClient {
         return OkHttpClient.Builder()
+            // 全局防 DNS 污染（v1.5.1）：DoH 真实 IP 优先 + 系统 DNS 兑底，
+            // 污染网络下直链 CDN 假 IP 超时不再只影响蓝奏云，所有平台统一受益
+            .dns(SmartDns)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -82,6 +85,7 @@ object HttpClients {
                 )
             )
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
+            .dns(SmartDns)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)

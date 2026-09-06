@@ -375,7 +375,7 @@ private fun ResolveInputContent(
                     value = link,
                     onValueChange = onLinkChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("支持 夸克/UC/迅雷/百度/139/123/蓝奏云/奶牛/小飞机") },
+                    placeholder = { Text("支持 夸克/UC/迅雷/百度/139/123/蓝奏云/奶牛/小飞机/城通/文叔叔") },
                     leadingIcon = { Icon(Icons.Outlined.Link, contentDescription = null) },
                     trailingIcon = {
                         if (link.isNotEmpty()) {

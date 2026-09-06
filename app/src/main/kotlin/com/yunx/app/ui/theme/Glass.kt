@@ -15,6 +15,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Rect
+import android.net.Uri
 import android.os.Build
 import android.view.WindowManager
 import androidx.compose.foundation.Image
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -47,8 +49,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.yunx.app.R
+import com.yunx.app.data.prefs.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /** 壁纸与玻璃的全局状态（进程级缓存，只计算一次）。
  *  采用 Compose 状态：模糊层就绪时，正在展示的玻璃面板（弹窗/胶囊栏）会自动重绘取样，
@@ -59,11 +63,69 @@ object GlassWallpaper {
     @Volatile var screenW: Int = 0
     @Volatile var screenH: Int = 0
 
+    /** 壁纸版本号：自定义壁纸应用/清除时 +1，各 WallpaperBackground 监听并重载 */
+    var version by mutableIntStateOf(0)
+
     private val decodeLock = Any()
     private val blurLock = Any()
 
+    private const val CUSTOM_FILE = "custom_wallpaper.img"
+
+    /** 自定义壁纸文件（无设置或文件不存在 → null） */
+    private fun customFile(context: Context): File? {
+        val name = runCatching { SettingsRepository(context).customWallpaper }.getOrNull()
+        if (name.isNullOrBlank()) return null
+        val f = File(context.filesDir, name)
+        return if (f.isFile && f.length() > 0) f else null
+    }
+
+    /** 当前是否已启用自定义壁纸（设置页展示用） */
+    fun hasCustom(context: Context): Boolean = customFile(context) != null
+
+    /** 应用自定义壁纸：把选中图片复制到 filesDir（原格式保存），成功后热重载。
+     *  返回 false = 打开/解码失败（非图片或损坏）。 */
+    fun applyCustom(context: Context, uri: Uri): Boolean {
+        return runCatching {
+            val target = File(context.filesDir, CUSTOM_FILE)
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                target.outputStream().use { output -> input.copyTo(output) }
+            } ?: return false
+            // 解码校验（非图片/损坏文件拒绝，避免设置后黑屏）
+            val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(target.absolutePath, opts)
+            check(opts.outWidth > 0 && opts.outHeight > 0) { "不是有效图片" }
+            SettingsRepository(context).customWallpaper = CUSTOM_FILE
+            reload(context)
+            true
+        }.getOrElse {
+            runCatching { File(context.filesDir, CUSTOM_FILE).delete() }
+            false
+        }
+    }
+
+    /** 清除自定义壁纸，恢复内置默认 */
+    fun clearCustom(context: Context) {
+        runCatching {
+            File(context.filesDir, CUSTOM_FILE).delete()
+            SettingsRepository(context).customWallpaper = null
+        }
+        reload(context)
+    }
+
+    /** 热重载：清空两层缓存并提升版本号（各处 WallpaperBackground 自动重新解码上屏） */
+    fun reload(context: Context) {
+        synchronized(decodeLock) {
+            synchronized(blurLock) {
+                sharp = null
+                blurred = null
+            }
+        }
+        version += 1
+    }
+
     /** 解码 + 中心裁剪到屏幕尺寸（Dispatchers.IO 一次性执行）。
-     *  清晰层立即可用（背景先上屏），模糊层另行补算（玻璃面板取样用）。 */
+     *  清晰层立即可用（背景先上屏），模糊层另行补算（玻璃面板取样用）。
+     *  优先解码用户自定义壁纸（filesDir），否则内置默认。 */
     fun ensureSharp(context: Context) {
         if (sharp != null) return
         synchronized(decodeLock) {
@@ -81,12 +143,20 @@ object GlassWallpaper {
                 // 限制解码尺寸（内存友好）：长边 ≤ 1600
                 val maxSide = 1600
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeResource(context.resources, R.drawable.bg_wallpaper, opts)
+                val custom = customFile(context)
+                if (custom != null) {
+                    BitmapFactory.decodeFile(custom.absolutePath, opts)
+                } else {
+                    BitmapFactory.decodeResource(context.resources, R.drawable.bg_wallpaper, opts)
+                }
                 var sample = 1
                 while (maxOf(opts.outWidth, opts.outHeight) / (sample + 1) >= maxSide) sample++
                 val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
-                val raw = BitmapFactory.decodeResource(context.resources, R.drawable.bg_wallpaper, decodeOpts)
-                    ?: return
+                val raw = if (custom != null) {
+                    BitmapFactory.decodeFile(custom.absolutePath, decodeOpts)
+                } else {
+                    BitmapFactory.decodeResource(context.resources, R.drawable.bg_wallpaper, decodeOpts)
+                } ?: return
                 sharp = centerCropScale(raw, screenW, screenH).asImageBitmap()
             }
         }
@@ -198,7 +268,8 @@ fun WallpaperBackground(
     darkScrimBottom: Float = 0.45f
 ) {
     val context = LocalContext.current
-    LaunchedEffect(Unit) {
+    // 监听壁纸版本：自定义壁纸应用/清除后自动重新解码（version 变化 → 重跑本 effect）
+    LaunchedEffect(GlassWallpaper.version) {
         // 清晰层：解码完成即上屏（状态写入触发重组）
         withContext(Dispatchers.IO) { GlassWallpaper.ensureSharp(context) }
         // 模糊层：后台补算（玻璃面板取样用；就绪后各面板自动重绘）

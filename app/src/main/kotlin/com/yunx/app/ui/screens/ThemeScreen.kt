@@ -75,6 +75,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -89,6 +90,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -118,7 +120,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.yunx.app.R
 import com.yunx.app.data.prefs.SettingsRepository
+import com.yunx.app.ui.SnackbarController
+import com.yunx.app.ui.theme.GlassWallpaper
 import com.yunx.app.ui.theme.ThemeController
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.Wallpaper
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** 预置主题色（Material 风格种子色） */
 private val presetColors = listOf(
@@ -174,6 +187,25 @@ fun ThemeScreen(
     // ---------- 桌面图标动态切换 ----------
     val settingsRepo = remember { SettingsRepository(context) }
     var appIconVariant by remember { mutableStateOf(settingsRepo.appIconVariant) }
+
+    // ---------- 自定义背景壁纸（v1.5.1） ----------
+    val scope = rememberCoroutineScope()
+    var hasCustomWallpaper by remember { mutableStateOf(GlassWallpaper.hasCustom(context)) }
+    val wallpaperPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val ok = withContext(Dispatchers.IO) { GlassWallpaper.applyCustom(context, uri) }
+                hasCustomWallpaper = GlassWallpaper.hasCustom(context)
+                if (ok) {
+                    SnackbarController.show("背景壁纸已应用")
+                } else {
+                    SnackbarController.show("所选文件不是有效图片，请重新选择")
+                }
+            }
+        }
+    }
     var iconExpanded by rememberSaveable { mutableStateOf(true) }
     val switchAppIcon: (Int) -> Unit = { variant ->
         val pm = context.packageManager
@@ -484,6 +516,89 @@ fun ThemeScreen(
                             )
                         }
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ---------- 背景壁纸（v1.5.1 自定义背景） ----------
+            SectionLabel("背景壁纸")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // 当前壁纸预览（内置默认 / 自定义）
+                    val previewBmp = GlassWallpaper.sharp
+                    if (previewBmp != null) {
+                        Image(
+                            bitmap = previewBmp,
+                            contentDescription = "当前背景预览",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Wallpaper,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "自定义背景图片",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = if (hasCustomWallpaper) "当前使用自定义壁纸" else "当前使用内置壁纸",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                wallpaperPicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(if (hasCustomWallpaper) "更换图片" else "选择图片")
+                        }
+                        if (hasCustomWallpaper) {
+                            OutlinedButton(
+                                onClick = {
+                                    GlassWallpaper.clearCustom(context)
+                                    hasCustomWallpaper = false
+                                    SnackbarController.show("已恢复内置壁纸")
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("恢复默认")
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "选择相册中的图片作为应用背景，玻璃面板会自动跟随取色。图片仅保存在本机。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 

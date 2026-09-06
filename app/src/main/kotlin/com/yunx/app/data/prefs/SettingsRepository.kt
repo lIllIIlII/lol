@@ -135,6 +135,13 @@ class SettingsRepository(context: Context) {
             prefs.edit().putLong("theme_seed_color", value).apply()
         }
 
+    /** 自定义背景壁纸（filesDir 内图片文件名；null/空 = 内置默认壁纸） */
+    var customWallpaper: String?
+        get() = prefs.getString("custom_wallpaper", null)
+        set(value) {
+            prefs.edit().putString("custom_wallpaper", value).apply()
+        }
+
     companion object {
         const val DEFAULT_DOWNLOAD_THREADS = 32
         const val MAX_DOWNLOAD_THREADS = 512

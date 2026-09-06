@@ -310,7 +310,7 @@ fun SupportScreen(
                             saveRewardQrToGallery(context)
                         }
                         if (ok) saved = true
-                        SnackbarController.show(if (ok) "已保存到相册（Pictures/YunX）" else "保存失败")
+                        SnackbarController.show(if (ok) "已保存到相册（Pictures/XiXiAt）" else "保存失败")
                     }
                 },
                 modifier = Modifier
@@ -328,7 +328,7 @@ fun SupportScreen(
             // 保存成功本地反馈（避免覆盖层遮挡全局 Snackbar 时无提示）
             if (saved) {
                 Text(
-                    text = "✓ 二维码已保存到 相册/Pictures/YunX",
+                    text = "✓ 二维码已保存到 相册/Pictures/XiXiAt",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Center
@@ -347,7 +347,7 @@ private fun saveRewardQrToGallery(context: Context): Boolean = runCatching {
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/YunX")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/XiXiAt")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val uri = context.contentResolver.insert(

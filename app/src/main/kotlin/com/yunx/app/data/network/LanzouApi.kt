@@ -9,7 +9,14 @@
 
 package com.yunx.app.data.network
 
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -81,8 +88,9 @@ object LanzouApi {
             // 蓝奏云家族域名在部分运营商网络被 DNS 污染（系统解析返回假 IP → 连接超时 →
             // 应用报「网络错误」但其他网盘正常）：DoH 真实 IP 优先 + 系统 DNS 兜底
             .dns(SmartDns)
-            .connectTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(25, TimeUnit.SECONDS) // 竞速僵尸请求兜底回收（页面/接口均小负载，25s 绰余）
             .build()
     }
 
@@ -128,15 +136,19 @@ object LanzouApi {
         return b
     }
 
-    /** GET 页面：自动解算 acw_sc__v2 挑战并重试（最多 2 轮）；网络异常转译为可读提示 */
+    /** GET 页面：自动解算 acw_sc__v2 挑战并重试（最多 2 轮）；网络异常转译为可读提示。
+     *  HTTP 403/5xx（WAF 拦截/节点故障，常见于 VPN 出口 IP 被拒）→ 抛网络层异常触发域名容灾 */
     private suspend fun getHtml(url: String, referer: String, accountCookie: String?): String = withContext(Dispatchers.IO) {
         var acw: String? = null
         repeat(3) {
             val req = Request.Builder().url(url).headers(baseHeaders(referer, acw, accountCookie).build()).get().build()
             val body = runCatching {
                 apiClient.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return@withContext ""
-                    resp.body?.string() ?: ""
+                    when {
+                        resp.isSuccessful -> resp.body?.string() ?: ""
+                        resp.code in BLOCK_HTTP_CODES -> throw LanzouNetException("HTTP ${resp.code}（节点拒绝）")
+                        else -> return@withContext "" // 404 等业务状态 → 空页走原有文案逻辑
+                    }
                 }
             }.getOrElse { e -> throw translateNetworkError(e, url) }
             val challenge = acwRegex.find(body)?.groupValues?.getOrNull(1)
@@ -146,18 +158,21 @@ object LanzouApi {
         ""
     }
 
-    /** 网络异常 → 用户可读提示（区分 DNS 污染 / 连接阻断，指导切换网络） */
+    /** 判定为网络/WAF 层失败的 HTTP 状态码（触发域名容灾）：
+     *  403=WAF 拒绝（VPN 出口 IP 常见）；405/406=网关改写；429=限流；5xx=节点故障 */
+    private val BLOCK_HTTP_CODES = intArrayOf(403, 405, 406, 429, 500, 502, 503, 504)
+
+    /** 网络异常 → 用户可读提示（区分 DNS 污染 / 连接阻断，指导切换网络）；
+     *  LanzouNetException 原样透传（不再二次包装） */
     private fun translateNetworkError(e: Throwable, url: String): LanzouNetException {
+        if (e is LanzouNetException) return e
         val host = runCatching { url.toHttpUrlOrNull()?.host ?: url }.getOrDefault(url)
         return LanzouNetException(
             when {
-                e is java.net.UnknownHostException ->
-                    "域名解析失败（$host）。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试"
-                e is java.net.SocketTimeoutException || e is java.net.ConnectException ->
-                    "连接 $host 超时/被拒。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试"
-                e is javax.net.ssl.SSLException ->
-                    "与 $host 的安全连接被中断，请切换网络后重试"
-                else -> "网络异常：${e.message ?: e.javaClass.simpleName}，请重试"
+                e is java.net.UnknownHostException -> "域名解析失败（$host）"
+                e is java.net.SocketTimeoutException || e is java.net.ConnectException -> "连接 $host 超时/被拒"
+                e is javax.net.ssl.SSLException -> "与 $host 的安全连接被中断"
+                else -> "网络异常（${e.javaClass.simpleName}）"
             }
         )
     }
@@ -187,8 +202,11 @@ object LanzouApi {
                 .build()
             val body = runCatching {
                 client.newCall(req).execute().use { resp ->
-                    if (!resp.isSuccessful) return@withContext ""
-                    resp.body?.string() ?: ""
+                    when {
+                        resp.isSuccessful -> resp.body?.string() ?: ""
+                        resp.code in BLOCK_HTTP_CODES -> throw LanzouNetException("HTTP ${resp.code}（节点拒绝）")
+                        else -> return@withContext ""
+                    }
                 }
             }.getOrElse { e -> throw translateNetworkError(e, url) }
             val challenge = acwRegex.find(body)?.groupValues?.getOrNull(1)
@@ -260,25 +278,21 @@ object LanzouApi {
 
     // ---------- 公开解析入口 ----------
 
+    /** 竞速参数：错峰间隔 700ms（0/0.7/1.4/2.1/2.8/3.5/4.2s 陆续发车）。
+     *  首个域名无污染时 0.3s 内直接返回；被污染时约 1s 内自动切到备用域名 */
+    private const val RACE_STAGGER_MS = 700L
+
     /**
-     * 解析分享页（文件或文件夹），带域名容灾：原域名网络层失败（DNS 污染/阻断/TLS 中断）
-     * 时自动换家族域名重试；业务错误（分享取消/需要密码等）直接抛出不再换域。
-     * @param baseUrl 如 https://wwbll.lanzoul.com
-     * @param shareId 路径段（b0188jmrwj 等）
-     * @throws WrongPwdException 提取码错误
-     * @throws NeedsPwdException 需要提取码但未提供
+     * 解析分享页（文件或文件夹），**多域名并发竞速**：
+     * 原域名立即首发，家族域名错峰补发；任一域名拿到结果（成功或业务错误）立即采用，
+     * 其余竞速请求后台由 callTimeout 兜底回收（不阻塞返回）。
+     * 相比串行重试：被污染网络下从「×7×15s 超时叠加」变为「约 1s 内自动切换可用域名」。
      */
     suspend fun fetchPage(baseUrl: String, shareId: String, pwd: String?, accountCookie: String?): LanzouPageResult {
         val originalHost = runCatching { baseUrl.toHttpUrlOrNull()?.host }.getOrNull() ?: baseUrl
-        var lastError: Exception? = null
-        for (host in failoverHosts(originalHost)) {
-            try {
-                return fetchPageOnHost("https://$host", shareId, pwd, accountCookie)
-            } catch (e: LanzouNetException) {
-                lastError = e // 网络层失败 → 换下一个家族域名
-            }
+        return raceHosts(failoverHosts(originalHost)) { host ->
+            fetchPageOnHost("https://$host", shareId, pwd, accountCookie)
         }
-        throw lastError ?: IllegalStateException("页面加载失败，请检查网络后重试")
     }
 
     /** 在指定域名上解析分享页（原 fetchPage 逻辑） */
@@ -408,21 +422,66 @@ object LanzouApi {
     }
 
     /**
-     * 获取单文件直链（带域名容灾）：页面(或 iframe 子页) → POST ajaxfile/ajaxm
-     * → dom+url → 直链页 302 Location。原域名网络层失败时换家族域名重试。
+     * 获取单文件直链，**多域名并发竞速**（同 fetchPage 策略）。
      * @return 直链（CDN 地址）
      */
     suspend fun fetchDirectLink(baseUrl: String, shareId: String, pwd: String?, accountCookie: String?): String {
         val originalHost = runCatching { baseUrl.toHttpUrlOrNull()?.host }.getOrNull() ?: baseUrl
-        var lastError: Exception? = null
-        for (host in failoverHosts(originalHost)) {
-            try {
-                return fetchDirectLinkOnHost("https://$host", shareId, pwd, accountCookie)
-            } catch (e: LanzouNetException) {
-                lastError = e // 网络层失败 → 换下一个家族域名
-            }
+        return raceHosts(failoverHosts(originalHost)) { host ->
+            fetchDirectLinkOnHost("https://$host", shareId, pwd, accountCookie)
         }
-        throw lastError ?: IllegalStateException("获取直链失败，请稍后重试")
+    }
+
+    /**
+     * 多域名并发竞速通用实现：
+     * - 错峰发车（原域名 0ms，其余每 700ms 一个），避免瞬时并发 7 个连接；
+     * - 首个成功结果立即返回；其余竞速协程后台取消（阻塞中的 OkHttp 调用由 callTimeout 回收）；
+     * - 业务错误（提取码/分享取消等，域名无关）直接终止并抛出；
+     * - 全部域名网络层失败 → 汇总诊断信息（逐域名失败原因 + 处置建议，含关闭 VPN 提示）。
+     */
+    private suspend fun <T> raceHosts(hosts: List<String>, block: suspend (host: String) -> T): T {
+        if (hosts.size <= 1) return block(hosts.first())
+        val outcomes = Channel<Pair<String, Result<T>>>(Channel.UNLIMITED)
+        val raceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        try {
+            hosts.forEachIndexed { i, host ->
+                raceScope.launch {
+                    if (i > 0) delay(RACE_STAGGER_MS * i)
+                    val r = runCatching { block(host) }
+                    if (isActive) outcomes.trySend(host to r)
+                }
+            }
+            val failures = ArrayList<String>(hosts.size)
+            repeat(hosts.size) {
+                val (host, r) = outcomes.receive()
+                r.getOrNull()?.let { return it }
+                val e = r.exceptionOrNull() ?: return@repeat
+                // 业务错误是域名无关的终态：直接抛（各域名结果相同，重试无意义）
+                if (e !is LanzouNetException) throw e
+                failures.add("$host=${shortNetTag(e)}")
+            }
+            throw LanzouNetException(buildAllFailedDiagnostic(failures))
+        } finally {
+            raceScope.cancel() // 胜出/异常/取消：停发新车；已发车的阻塞请求由 callTimeout 兜底回收
+        }
+    }
+
+    /** 网络层异常的短分类（诊断摘要用，避免长文案堆叠） */
+    private fun shortNetTag(e: Throwable): String = when {
+        e is java.net.UnknownHostException -> "解析失败"
+        e is java.net.SocketTimeoutException -> "连接超时"
+        e is java.net.ConnectException -> "连接被拒"
+        e is javax.net.ssl.SSLException -> "TLS中断"
+        else -> (e.message ?: e.javaClass.simpleName).take(20)
+    }
+
+    /** 全域名失败诊断文案：逐域名原因 + 处置建议（VPN/换网/稍后再试） */
+    private fun buildAllFailedDiagnostic(failures: List<String>): String {
+        val shown = failures.take(4).joinToString("；")
+        val more = if (failures.size > 4) "；等 ${failures.size} 个域名" else ""
+        return "蓝奏云全线路连接失败（$shown$more）。" +
+            "建议：① 若正在使用 VPN/代理请关闭后重试（部分代理出口会被蓝奏云 CDN 拒绝）；" +
+            "② 切换 Wi-Fi/流量；③ 稍后再试"
     }
 
     /** 在指定域名上获取直链（原 fetchDirectLink 逻辑） */
@@ -512,7 +571,7 @@ object LanzouApi {
                 }
             }
             form2["el"] = "2"
-            Thread.sleep(2000)
+            delay(2000)
             val ajax2 = postForm("$dom/ajax.php", form2, downloadPage, accountCookie)
             val j2 = runCatching { JSONObject(ajax2) }.getOrNull()
             val u2 = j2?.optString("url").orEmpty()

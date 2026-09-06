@@ -8,12 +8,15 @@
  *   DoH 解析真实 CDN 182.242.90.x 直连可用）。
  *
  * 策略：
- * - 每次解析同时走 系统DNS 与 DoH（阿里公共 DNS JSON API，IP 直连不依赖 DNS）；
+ * - 每次解析同时走 系统DNS 与 DoH（阿里 / DNSPod JSON API，IP 直连不依赖 DNS）；
+ * - DoH 三服务商 **并行查询**（整体 2.5s 预算，任一返回即采用），
+ *   相比串行最多 18s 空等（3×6s），DoH 部分不可达时不再拖慢请求；
+ * - DoH 全部失败 → **负缓存 60s**（期间直接走系统 DNS，避免每个请求都空等预算）；
  * - DoH 结果排前面（真实 CDN IP 优先），系统结果殿后兜底；OkHttp 在路由失败时
  *   会自动切换下一个地址（retryOnConnectionFailure），因此两路互为保险：
  *   · 系统 DNS 被污染 → 先连 DoH 真实 IP，成功；
  *   · DoH 不可达/被墙 → 退回系统 IP；
- * - 结果缓存 60 秒（TTL 上限同样 60s），DoH 查询 3s 超时静默失败；
+ * - 成功结果缓存 60 秒；
  * - 仅 IPv4（A 记录）：国内移动网络 IPv6 路由质量参差，优先 v4 稳定性。
  */
 package com.yunx.app.data.network
@@ -24,22 +27,33 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.net.InetAddress
 import java.net.UnknownHostException
+import java.util.concurrent.Callable
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 
 object SmartDns : Dns {
 
-    /** DoH 服务器（url 模板：阿里公共 DNS 主备 + 腾讯 DNSPod，均以 IP 直连不依赖 DNS）
-     *  多服务商串联：任一可用即返回，最大化防污染/防劫持覆盖 */
+    /** DoH 服务器（url 模板：阿里公共 DNS 主备 + 腾讯 DNSPod，均以 IP 直连不依赖 DNS） */
     private val dohEndpoints = listOf(
         "https://223.5.5.5/resolve?name=%s&type=A",
         "https://223.6.6.6/resolve?name=%s&type=A",
         "https://119.29.29.29/dns-query?name=%s&type=1" // DNSPod（Google DoH JSON 同构）
     )
 
-    /** 缓存：60s 内直接复用（域名解析不是热路径，避免每次请求都打 DoH） */
+    /** DoH 并行查询线程池（守护线程：不阻止进程退出） */
+    private val dohExecutor: ExecutorService = Executors.newFixedThreadPool(3) { r ->
+        Thread(r, "smart-dns-doh").apply { isDaemon = true }
+    }
+
+    /** 成功缓存：60s 内直接复用（域名解析不是热路径，避免每次请求都打 DoH） */
     private val cache = ConcurrentHashMap<String, Cached>()
     private const val CACHE_MS = 60_000L
+
+    /** 负缓存：DoH 整体不可达时短记 60s，期间跳过 DoH 直接系统解析（防每请求空等） */
+    private val negativeCache = ConcurrentHashMap<String, Long>()
 
     private class Cached(val expiresAt: Long, val addresses: List<InetAddress>)
 
@@ -57,8 +71,11 @@ object SmartDns : Dns {
         val hit = cache[hostname]
         if (hit != null && System.currentTimeMillis() < hit.expiresAt) return hit.addresses
 
+        // 并行：DoH 三服务商先发车（线程池），系统 DNS 内联解析（OS 缓存通常 <50ms，
+        // 与 DoH 等待窗口天然重叠，互不占用对方线程）
+        val dohFutures = submitDoh(hostname)
         val system = runCatching { Dns.SYSTEM.lookup(hostname) }.getOrDefault(emptyList())
-        val doh = resolveViaDoH(hostname)
+        val doh = awaitDoh(hostname, dohFutures)
 
         // DoH 优先（防污染），系统兜底；保序去重
         val merged = ArrayList<InetAddress>(doh.size + system.size)
@@ -74,35 +91,71 @@ object SmartDns : Dns {
         return merged
     }
 
-    /** DoH JSON API（阿里 /resolve?name=<host>&type=A；DNSPod /dns-query?name=<host>&type=1） */
-    private fun resolveViaDoH(hostname: String): List<InetAddress> {
-        for (template in dohEndpoints) {
-            val body = runCatching {
-                dohClient.newCall(
-                    Request.Builder()
-                        .url(template.format(hostname))
-                        .header("Accept", "application/dns-json")
-                        .get()
-                        .build()
-                ).execute().use { resp ->
-                    if (!resp.isSuccessful) return@runCatching null
-                    resp.body?.string()
-                }
-            }.getOrNull() ?: continue
-            if (body.isNullOrBlank()) continue
-            val answers = runCatching { JSONObject(body).optJSONArray("Answer") }.getOrNull() ?: continue
-            val out = ArrayList<InetAddress>(answers.length())
-            for (i in 0 until answers.length()) {
-                val a = answers.optJSONObject(i) ?: continue
-                if (a.optInt("type") != 1) continue // 仅 A 记录（CNAME 链中的 A 也在同一 Answer 数组）
-                val ip = a.optString("data").trim()
-                if (ip.isEmpty()) continue
-                // 字面量 IP 构造，不触发任何解析
-                runCatching { InetAddress.getByName(ip) }.getOrNull()?.let { out.add(it) }
-            }
-            if (out.isNotEmpty()) return out
+    /** 提交全部 DoH 服务商查询（并行） */
+    private fun submitDoh(hostname: String): List<Future<List<InetAddress>>> {
+        if (isNegativeCached(hostname)) return emptyList()
+        return dohEndpoints.map { template ->
+            dohExecutor.submit(Callable { queryDoh(template.format(hostname)) })
         }
+    }
+
+    /** 等待 DoH 结果：2.5s 预算内任一非空即采用；全部失败 → 负缓存 60s */
+    private fun awaitDoh(hostname: String, futures: List<Future<List<InetAddress>>>): List<InetAddress> {
+        if (futures.isEmpty()) return emptyList()
+        val deadline = System.currentTimeMillis() + 2500
+        try {
+            while (System.currentTimeMillis() < deadline) {
+                for (f in futures) {
+                    if (f.isDone) {
+                        val r = runCatching { f.get() }.getOrNull()
+                        if (!r.isNullOrEmpty()) return r
+                    }
+                }
+                Thread.sleep(100)
+            }
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
+        }
+        // 预算内无任何 DoH 结果：取消挂起查询 + 负缓存，下个窗口直接系统解析
+        futures.forEach { it.cancel(true) }
+        negativeCache[hostname] = System.currentTimeMillis() + CACHE_MS
         return emptyList()
+    }
+
+    private fun isNegativeCached(hostname: String): Boolean {
+        val until = negativeCache[hostname] ?: return false
+        return if (System.currentTimeMillis() < until) true else {
+            negativeCache.remove(hostname)
+            false
+        }
+    }
+
+    /** 单服务商 DoH JSON 查询（阿里 /resolve?name=<host>&type=A；DNSPod /dns-query?name=<host>&type=1） */
+    private fun queryDoh(url: String): List<InetAddress> {
+        val body = runCatching {
+            dohClient.newCall(
+                Request.Builder()
+                    .url(url)
+                    .header("Accept", "application/dns-json")
+                    .get()
+                    .build()
+            ).execute().use { resp ->
+                if (!resp.isSuccessful) return@runCatching null
+                resp.body?.string()
+            }
+        }.getOrNull() ?: return emptyList()
+        if (body.isBlank()) return emptyList()
+        val answers = runCatching { JSONObject(body).optJSONArray("Answer") }.getOrNull() ?: return emptyList()
+        val out = ArrayList<InetAddress>(answers.length())
+        for (i in 0 until answers.length()) {
+            val a = answers.optJSONObject(i) ?: continue
+            if (a.optInt("type") != 1) continue // 仅 A 记录（CNAME 链中的 A 也在同一 Answer 数组）
+            val ip = a.optString("data").trim()
+            if (ip.isEmpty()) continue
+            // 字面量 IP 构造，不触发任何解析
+            runCatching { InetAddress.getByName(ip) }.getOrNull()?.let { out.add(it) }
+        }
+        return out
     }
 
     private fun isLiteralIp(host: String): Boolean {

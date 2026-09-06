@@ -157,6 +157,8 @@ fun DriveScreen(
     onCowLogout: () -> Unit,
     onFeijiLogin: () -> Unit,
     onFeijiLogout: () -> Unit,
+    /** 免登录解析型网盘（城通/文叔叔）：点击跳转到「解析」页粘贴链接 */
+    onGoResolve: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var showQuarkSheet by remember { mutableStateOf(false) }
@@ -242,6 +244,19 @@ fun DriveScreen(
         description = feijiAccount?.nickname?.takeIf { it.isNotBlank() } ?: "登录可选，支持解析下载",
         avatarText = "飞",
         isLoggedIn = feijiAccount != null
+    )
+    // v1.5.1 新增：城通 / 文叔叔（免登录解析型，无云盘账号体系 → 点击直达解析页）
+    val ctfile = DriveAccount(
+        id = "ctfile",
+        name = "城通网盘",
+        description = "免登录解析下载，支持访问密码",
+        avatarText = "城"
+    )
+    val wenshushu = DriveAccount(
+        id = "wenshushu",
+        name = "文叔叔",
+        description = "免登录解析下载，支持文件夹浏览",
+        avatarText = "文"
     )
 
     // 进入网盘页加载空间详情（仅已登录平台）
@@ -464,6 +479,19 @@ fun DriveScreen(
                         } else {
                             null
                         }
+                    )
+                }
+                // 城通网盘 / 文叔叔：免登录解析入口（v1.5.1，点击直达「解析」页）
+                item(key = ctfile.id) {
+                    DriveAccountCard(
+                        account = ctfile,
+                        onClick = onGoResolve
+                    )
+                }
+                item(key = wenshushu.id) {
+                    DriveAccountCard(
+                        account = wenshushu,
+                        onClick = onGoResolve
                     )
                 }
             }

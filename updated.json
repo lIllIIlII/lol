@@ -1,7 +1,7 @@
 {
-  "version": "1.5.0",
+  "version": "1.5.1",
   "date": "2026-09-06",
-  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.5.0/XiXiAt_1.5.0.apk",
-  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.5.0/XiXiAt_1.5.0.apk",
-  "notes": "v1.5.0：修复小飞机/优享版解析崩溃（Referer 头构造缺陷，此前报「Unexpected char」）；蓝奏云网络错误根治（家族域名自动容灾 + 阿里/腾讯多 DoH）；新增城通网盘与文叔叔两个免登录解析平台（协议均实测验证）。"
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.5.1/XiXiAt_1.5.1.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.5.1/XiXiAt_1.5.1.apk",
+  "notes": "v1.5.1：蓝奏云网络错误终极修复（7 域名并发竞速自动切换 + HTTP403/5xx 容灾 + 全失败时给出逐域名诊断与 VPN 提示）；全局 DoH 防 DNS 污染（含直链下载）；新增自定义背景壁纸；网盘导航栏新增城通/文叔叔入口；APP 图标换新；安全弹窗与关于页开源地址改为本项目；文本信息 Made with SyTren/Ccat。"
 }

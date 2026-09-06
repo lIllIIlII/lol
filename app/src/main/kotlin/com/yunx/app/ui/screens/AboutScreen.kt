@@ -134,10 +134,9 @@ fun AboutScreen(
             InfoCard(
                 icon = Icons.Outlined.Cloud,
                 title = "应用简介",
-                description = "吸析At（基于开源项目 YunX）是一款网盘分享链接解析与高速下载工具。" +
+                description = "吸析At 是一款网盘分享链接解析与高速下载工具。" +
                     "粘贴分享链接，登录网盘账号后即可浏览分享内容并直接高速下载文件。"
             )
-            
 
             // ---------- 支持平台 ----------
             PlatformCard()
@@ -153,7 +152,7 @@ fun AboutScreen(
 
             // ---------- 开源协议 ----------
             Text(
-                text = "基于开源项目 YunX（AGPL-3.0）· 源码与更新托管于 GitHub · 完全免费，禁止倒卖",
+                text = "开源协议 AGPL-3.0 · 源码与更新托管于 GitHub · 完全免费，禁止倒卖",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.fillMaxWidth(),
@@ -168,7 +167,7 @@ fun AboutScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "吸析At v$versionName · Made with ❤",
+                text = "吸析At v$versionName · Made with SyTren/Ccat",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier
@@ -275,7 +274,9 @@ private fun PlatformCard() {
         "蓝奏云" to Icons.Outlined.Link,
         "蓝奏云优享版" to Icons.Outlined.Link,
         "奶牛快传" to Icons.Outlined.Link,
-        "小飞机网盘" to Icons.Outlined.Link
+        "小飞机网盘" to Icons.Outlined.Link,
+        "城通网盘" to Icons.Outlined.Link,
+        "文叔叔" to Icons.Outlined.Link
     )
     SectionCard {
         Row(verticalAlignment = Alignment.CenterVertically) {

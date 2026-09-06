@@ -208,7 +208,7 @@ fun FeedbackScreen(
                             saveQrToGallery(context, R.drawable.wechat_friend_qr, "yunx_wechat_friend_qr")
                         }
                         if (ok) savedWechat = true
-                        SnackbarController.show(if (ok) "已保存到相册（Pictures/YunX）" else "保存失败")
+                        SnackbarController.show(if (ok) "已保存到相册（Pictures/XiXiAt）" else "保存失败")
                     }
                 }
             )
@@ -230,7 +230,7 @@ fun FeedbackScreen(
                             saveQrToGallery(context, R.drawable.qq_friend_qr, "yunx_qq_friend_qr")
                         }
                         if (ok) savedQq = true
-                        SnackbarController.show(if (ok) "已保存到相册（Pictures/YunX）" else "保存失败")
+                        SnackbarController.show(if (ok) "已保存到相册（Pictures/XiXiAt）" else "保存失败")
                     }
                 }
             )
@@ -351,7 +351,7 @@ private fun saveQrToGallery(context: Context, drawableRes: Int, namePrefix: Stri
         val values = ContentValues().apply {
             put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
             put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
-            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/YunX")
+            put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/XiXiAt")
             put(MediaStore.Images.Media.IS_PENDING, 1)
         }
         val uri = context.contentResolver.insert(

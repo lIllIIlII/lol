@@ -752,7 +752,8 @@ fun MainScreen() {
                         onCowLogin = { showCowLogin = true },
                         onCowLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.COWTRANSFER) },
                         onFeijiLogin = { showFeijiLogin = true },
-                        onFeijiLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.FEIJI) }
+                        onFeijiLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.FEIJI) },
+                        onGoResolve = { currentTab = MainTab.Resolve }
                     )
                     MainTab.Download -> DownloadScreen(scrollBehavior, downloadViewModel)
                     MainTab.Settings -> SettingsScreen(
@@ -836,7 +837,7 @@ fun MainScreen() {
         }
     }
 
-    // 关于云析：叠加覆盖层（淡入 + 轻微缩放过渡）
+    // 关于吸析：叠加覆盖层（淡入 + 轻微缩放过渡）
     AnimatedVisibility(
         visible = showAbout,
         enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),

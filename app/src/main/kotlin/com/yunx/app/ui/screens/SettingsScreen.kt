@@ -489,7 +489,7 @@ fun SettingsScreen(
         SectionLabel("关于")
         SettingsItem(
             icon = Icons.Outlined.Info,
-            title = "关于云析",
+            title = "关于吸析",
             description = "版本信息、支持平台与技术说明",
             onClick = onAboutClick,
             onLongClick = { showDevMenu = true } // 长按打开隐藏开发调试菜单
