@@ -36,7 +36,8 @@ class LanzouResolveRepository(
             val page = LanzouApi.fetchPage(baseUrl, parsed.shareId, sharePwd, accountCookie)
             ShareSession(
                 shareId = parsed.shareId,
-                stoken = packStoken(baseUrl, sharePwd, accountCookie),
+                // 用容灾后实际可用的域名（原域名被拦截时已自动切换）
+                stoken = packStoken(page.baseUrl, sharePwd, accountCookie),
                 title = page.title.ifBlank { "蓝奏云分享" }
             )
         }

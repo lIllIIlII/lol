@@ -29,8 +29,13 @@ import java.util.concurrent.TimeUnit
 
 object SmartDns : Dns {
 
-    /** DoH 服务器（阿里公共 DNS 主备，均以 IP 直连） */
-    private val dohServers = listOf("223.5.5.5", "223.6.6.6")
+    /** DoH 服务器（url 模板：阿里公共 DNS 主备 + 腾讯 DNSPod，均以 IP 直连不依赖 DNS）
+     *  多服务商串联：任一可用即返回，最大化防污染/防劫持覆盖 */
+    private val dohEndpoints = listOf(
+        "https://223.5.5.5/resolve?name=%s&type=A",
+        "https://223.6.6.6/resolve?name=%s&type=A",
+        "https://119.29.29.29/dns-query?name=%s&type=1" // DNSPod（Google DoH JSON 同构）
+    )
 
     /** 缓存：60s 内直接复用（域名解析不是热路径，避免每次请求都打 DoH） */
     private val cache = ConcurrentHashMap<String, Cached>()
@@ -69,13 +74,13 @@ object SmartDns : Dns {
         return merged
     }
 
-    /** 阿里 DoH JSON API：https://223.5.5.5/resolve?name=<host>&type=A */
+    /** DoH JSON API（阿里 /resolve?name=<host>&type=A；DNSPod /dns-query?name=<host>&type=1） */
     private fun resolveViaDoH(hostname: String): List<InetAddress> {
-        for (server in dohServers) {
+        for (template in dohEndpoints) {
             val body = runCatching {
                 dohClient.newCall(
                     Request.Builder()
-                        .url("https://$server/resolve?name=$hostname&type=A")
+                        .url(template.format(hostname))
                         .header("Accept", "application/dns-json")
                         .get()
                         .build()
@@ -89,7 +94,7 @@ object SmartDns : Dns {
             val out = ArrayList<InetAddress>(answers.length())
             for (i in 0 until answers.length()) {
                 val a = answers.optJSONObject(i) ?: continue
-                if (a.optInt("type") != 1) continue // 仅 A 记录
+                if (a.optInt("type") != 1) continue // 仅 A 记录（CNAME 链中的 A 也在同一 Answer 数组）
                 val ip = a.optString("data").trim()
                 if (ip.isEmpty()) continue
                 // 字面量 IP 构造，不触发任何解析

@@ -48,6 +48,8 @@ import com.yunx.app.data.repository.C139AccountRepository
 import com.yunx.app.data.repository.C139ResolveRepository
 import com.yunx.app.data.repository.CowTransferResolveRepository
 import com.yunx.app.data.repository.LanzouResolveRepository
+import com.yunx.app.data.repository.CtfileResolveRepository
+import com.yunx.app.data.repository.WenshushuResolveRepository
 import com.yunx.app.data.repository.SimpleAccountRepository
 import com.yunx.app.data.repository.SimpleNetdisk
 import com.yunx.app.data.repository.WsDiskResolveRepository
@@ -93,6 +95,8 @@ class ResolveViewModel(
     private val cowTransferResolveRepository: CowTransferResolveRepository,
     private val feijiResolveRepository: WsDiskResolveRepository,
     private val ilanzouResolveRepository: WsDiskResolveRepository,
+    private val ctfileResolveRepository: CtfileResolveRepository,
+    private val wenshushuResolveRepository: WenshushuResolveRepository,
     private val downloadManager: DownloadManager,
     private val bookmarkDao: BookmarkDao
 ) : ViewModel() {
@@ -122,12 +126,14 @@ class ResolveViewModel(
     var saveMessage by mutableStateOf<String?>(null)
         private set
 
-    /** 新增四平台（蓝奏云/优享版/奶牛/小飞机）解析不强制登录 */
+    /** 新增六平台（蓝奏云/优享版/奶牛/小飞机/城通/文叔叔）解析不强制登录 */
     private val loginOptional: Boolean
         get() = currentPlatform == SharePlatform.LANZOU ||
             currentPlatform == SharePlatform.ILANZOU ||
             currentPlatform == SharePlatform.COWTRANSFER ||
-            currentPlatform == SharePlatform.FEIJI
+            currentPlatform == SharePlatform.FEIJI ||
+            currentPlatform == SharePlatform.CTFILE ||
+            currentPlatform == SharePlatform.WENSHUSHU
 
     /** 当前分享是否支持转存（夸克 / UC / 迅雷 / 百度 / 139 / 123） */
     val canSave: Boolean
@@ -522,6 +528,8 @@ class ResolveViewModel(
         SharePlatform.COWTRANSFER -> ""
         SharePlatform.FEIJI -> ""
         SharePlatform.ILANZOU -> ""
+        SharePlatform.CTFILE -> ""
+        SharePlatform.WENSHUSHU -> ""
         else -> accountRepository.getAccount()?.cookie.orEmpty()
     }
 
@@ -535,6 +543,8 @@ class ResolveViewModel(
         SharePlatform.COWTRANSFER -> cowTransferResolveRepository
         SharePlatform.FEIJI -> feijiResolveRepository
         SharePlatform.ILANZOU -> ilanzouResolveRepository
+        SharePlatform.CTFILE -> ctfileResolveRepository
+        SharePlatform.WENSHUSHU -> wenshushuResolveRepository
         else -> resolveRepository
     }
 
@@ -544,7 +554,8 @@ class ResolveViewModel(
         SharePlatform.BAIDU -> ""
         SharePlatform.C139 -> "0"
         SharePlatform.PAN123 -> "0"
-        SharePlatform.LANZOU, SharePlatform.COWTRANSFER, SharePlatform.FEIJI, SharePlatform.ILANZOU -> "0"
+        SharePlatform.LANZOU, SharePlatform.COWTRANSFER, SharePlatform.FEIJI, SharePlatform.ILANZOU,
+        SharePlatform.CTFILE, SharePlatform.WENSHUSHU -> "0"
         else -> QuarkConstants.DEFAULT_PDIR_FID
     }
 
@@ -558,6 +569,8 @@ class ResolveViewModel(
         SharePlatform.ILANZOU -> "蓝奏云优享版"
         SharePlatform.COWTRANSFER -> "奶牛快传"
         SharePlatform.FEIJI -> "小飞机网盘"
+        SharePlatform.CTFILE -> "城通网盘"
+        SharePlatform.WENSHUSHU -> "文叔叔"
         else -> "夸克网盘"
     }
 
@@ -749,6 +762,8 @@ class ResolveViewModel(
         val isCow = currentPlatform == SharePlatform.COWTRANSFER
         val isFeiji = currentPlatform == SharePlatform.FEIJI
         val isIlanzou = currentPlatform == SharePlatform.ILANZOU
+        val isCtfile = currentPlatform == SharePlatform.CTFILE
+        val isWss = currentPlatform == SharePlatform.WENSHUSHU
         // 下载来源平台：按平台应用下载线程数设置
         val platform = when {
             isXunlei -> DownloadPlatform.XUNLEI
@@ -760,6 +775,8 @@ class ResolveViewModel(
             isCow -> DownloadPlatform.COWTRANSFER
             isFeiji -> DownloadPlatform.FEIJI
             isIlanzou -> DownloadPlatform.ILANZOU
+            isCtfile -> DownloadPlatform.CTFILE
+            isWss -> DownloadPlatform.WENSHUSHU
             else -> DownloadPlatform.QUARK
         }
         // 【关键修复】夸克/UC 共用 __puus：取链与下载必须用同一份已刷新 Cookie（AlistGo/alist#830 类缺陷）
@@ -776,6 +793,8 @@ class ResolveViewModel(
                 "Referer" to "https://pc.woozooo.com/"
             )
             isCow || isFeiji || isIlanzou -> mapOf("User-Agent" to LanzouApi.USER_AGENT)
+            // 城通/文叔叔：CDN 直链无防盗链，通用浏览器 UA 即可
+            isCtfile || isWss -> mapOf("User-Agent" to LanzouApi.USER_AGENT)
             isXunlei -> mapOf("User-Agent" to XunleiConstants.APP_UA) // 迅雷直链必须用官方 app UA，浏览器 UA 会触发 CDN 降级（200整文件）
             isBaidu -> mapOf(
                 "Cookie" to credential,
@@ -874,6 +893,8 @@ class ResolveViewModel(
         private val cowTransferResolveRepository: CowTransferResolveRepository,
         private val feijiResolveRepository: WsDiskResolveRepository,
         private val ilanzouResolveRepository: WsDiskResolveRepository,
+        private val ctfileResolveRepository: CtfileResolveRepository,
+        private val wenshushuResolveRepository: WenshushuResolveRepository,
         private val downloadManager: DownloadManager,
         private val bookmarkDao: BookmarkDao
     ) : ViewModelProvider.Factory {
@@ -892,6 +913,8 @@ class ResolveViewModel(
                 cowTransferResolveRepository,
                 feijiResolveRepository,
                 ilanzouResolveRepository,
+                ctfileResolveRepository,
+                wenshushuResolveRepository,
                 downloadManager,
                 bookmarkDao
             ) as T

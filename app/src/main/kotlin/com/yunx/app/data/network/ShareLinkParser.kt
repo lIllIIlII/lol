@@ -19,7 +19,7 @@
 package com.yunx.app.data.network
 
 /** 网盘平台 */
-enum class SharePlatform { QUARK, UC, XUNLEI, BAIDU, C139, PAN123, LANZOU, ILANZOU, COWTRANSFER, FEIJI }
+enum class SharePlatform { QUARK, UC, XUNLEI, BAIDU, C139, PAN123, LANZOU, ILANZOU, COWTRANSFER, FEIJI, CTFILE, WENSHUSHU }
 
 /**
  * 解析结果：share_id + 提取码 + 平台。
@@ -66,9 +66,22 @@ object ShareLinkParser {
     private val cowShareIdRegex = Regex("""cowtransfer\.com/s/([0-9A-Za-z-]{10,})""", RegexOption.IGNORE_CASE)
     // 小飞机网盘：https://share.feijipan.com/s/LaWUHmt5?code=ywzt
     private val feijiShareIdRegex = Regex("""feijipan\.com/s/([0-9A-Za-z-]{4,})""", RegexOption.IGNORE_CASE)
+    // 城通网盘：域名家族（ctfile.com 及镜像 545c.com / pipipan.com 等）；
+    // 文件分享 /f/<uid-fid-chk>（3 段）或 /file/<uid-fid>（2 段），文件夹 /dir/<id>（暂不支持）
+    private val ctfileShareIdRegex = Regex(
+        """(?:[a-z0-9]+\.)?(?:ctfile|pipipan|545c)\.com/(f|file|dir)/([a-zA-Z0-9-]{5,})""",
+        RegexOption.IGNORE_CASE
+    )
+    // 文叔叔：https://f.wenshushu.cn/f/<code>（尾段 11/12 位 tid 或 16 位 token）
+    private val wssShareIdRegex = Regex(
+        """(?:[a-z]+\.)?wenshushu\.cn/f/([a-zA-Z0-9]{8,20})""",
+        RegexOption.IGNORE_CASE
+    )
     private val pwdInUrlRegex = Regex("""[?&]pwd=([A-Za-z0-9]+)""")
     private val codeInUrlRegex = Regex("""[?&]code=([A-Za-z0-9]+)""")
-    private val pwdInTextRegex = Regex("""(?:提取码|访问码|密码)[：:]\s*([A-Za-z0-9]{4,8})""")
+    // 城通访问密码常在 URL：?p=xxxx
+    private val pInUrlRegex = Regex("""[?&]p=([A-Za-z0-9]{2,12})""")
+    private val pwdInTextRegex = Regex("""(?:提取码|访问码|访问密码|密码)[：:]\s*([A-Za-z0-9]{3,12})""")
 
     fun parse(text: String): ParsedShare? {
         val url = urlRegex.find(text.trim())?.value
@@ -150,6 +163,27 @@ object ShareLinkParser {
                 ?: pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)
                 ?: pwdInTextRegex.find(text)?.groupValues?.getOrNull(1)
             return ParsedShare(shareId = sid, pwd = pwd, platform = SharePlatform.FEIJI)
+        }
+        // 城通网盘链接（group1=f/file/dir 形态，group2=分享 ID；?p= 或文案访问密码均支持）
+        ctfileShareIdRegex.find(url)?.groupValues?.let { g ->
+            val kind = g.getOrNull(1).orEmpty()
+            val sid = g.getOrNull(2).orEmpty()
+            if (sid.length >= 6) {
+                val pwd = pInUrlRegex.find(url)?.groupValues?.getOrNull(1)
+                    ?: pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)
+                    ?: pwdInTextRegex.find(text)?.groupValues?.getOrNull(1)
+                // dir 文件夹分享暂不支持：归一化为 f 形态交由仓库层提示
+                return ParsedShare(shareId = "$kind:$sid", pwd = pwd, platform = SharePlatform.CTFILE)
+            }
+        }
+        // 文叔叔链接
+        wssShareIdRegex.find(url)?.groupValues?.getOrNull(1)?.let { sid ->
+            if (sid.length in 8..20) {
+                val pwd = pInUrlRegex.find(url)?.groupValues?.getOrNull(1)
+                    ?: pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)
+                    ?: pwdInTextRegex.find(text)?.groupValues?.getOrNull(1)
+                return ParsedShare(shareId = sid, pwd = pwd, platform = SharePlatform.WENSHUSHU)
+            }
         }
         return null
     }

@@ -1,7 +1,7 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "date": "2026-09-06",
-  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.4.0/XiXiAt_1.4.0.apk",
-  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.4.0/XiXiAt_1.4.0.apk",
-  "notes": "v1.4.0：小飞机网盘文件夹解析根治（不再出现无数未知文件夹，可正常进入文件夹与下载）；蓝奏云解析网络错误修复（智能 DNS 防污染，明确提示切换网络）；新增蓝奏云优享版(ilanzou.com)解析支持；赞赏码更新；「汇报日志」改为扫码加开发者微信/QQ 好友直接反馈。"
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.5.0/XiXiAt_1.5.0.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.5.0/XiXiAt_1.5.0.apk",
+  "notes": "v1.5.0：修复小飞机/优享版解析崩溃（Referer 头构造缺陷，此前报「Unexpected char」）；蓝奏云网络错误根治（家族域名自动容灾 + 阿里/腾讯多 DoH）；新增城通网盘与文叔叔两个免登录解析平台（协议均实测验证）。"
 }

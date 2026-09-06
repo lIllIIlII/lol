@@ -28,6 +28,9 @@ data class LanzouEntry(
     val isDir: Boolean
 )
 
+/** 网络层异常标记（DNS 污染 / 连接阻断 / TLS 中断）：触发域名容灾重试 */
+class LanzouNetException(message: String) : IllegalStateException(message)
+
 /** 页面解析结果 */
 data class LanzouPageResult(
     val baseUrl: String,
@@ -44,6 +47,20 @@ object LanzouApi {
 
     const val USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+    /** 同源容灾域名池（实测同一分享 ID 在家族域名内容一致）：
+     *  单个域名被运营商 DNS 污染 / SNI 阻断时自动切换下一个，
+     *  原链接域名永远第一位，其余仅在网络层失败时才启用 */
+    private val FAMILY_DOMAINS = listOf(
+        "wwbll.lanzoul.com", "wwl.lanzoup.com", "wwm.lanzouv.com",
+        "wwp.lanzouy.com", "wwk.lanzoue.com", "wwj.lanzoux.com",
+        "wwh.lanzouf.com", "wwy.lanzouh.com", "wwt.lanzoud.com"
+    )
+
+    /** 域名容灾候选：原域名 + 家族域名（去重，最多 1+6 个防超时叠加） */
+    private fun failoverHosts(original: String): List<String> {
+        return (listOf(original) + FAMILY_DOMAINS.filter { it != original }).distinct().take(7)
+    }
 
     private const val ACW_XOR_KEY = "3000176000856006061501533003690027800375"
     private val ACW_BOX = intArrayOf(
@@ -130,17 +147,19 @@ object LanzouApi {
     }
 
     /** 网络异常 → 用户可读提示（区分 DNS 污染 / 连接阻断，指导切换网络） */
-    private fun translateNetworkError(e: Throwable, url: String): IllegalStateException {
+    private fun translateNetworkError(e: Throwable, url: String): LanzouNetException {
         val host = runCatching { url.toHttpUrlOrNull()?.host ?: url }.getOrDefault(url)
-        return when {
-            e is java.net.UnknownHostException ->
-                IllegalStateException("域名解析失败（$host）。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试")
-            e is java.net.SocketTimeoutException || e is java.net.ConnectException ->
-                IllegalStateException("连接 $host 超时/被拒。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试")
-            e is javax.net.ssl.SSLException ->
-                IllegalStateException("与 $host 的安全连接被中断，请切换网络后重试")
-            else -> IllegalStateException("网络异常：${e.message ?: e.javaClass.simpleName}，请重试")
-        }
+        return LanzouNetException(
+            when {
+                e is java.net.UnknownHostException ->
+                    "域名解析失败（$host）。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试"
+                e is java.net.SocketTimeoutException || e is java.net.ConnectException ->
+                    "连接 $host 超时/被拒。当前网络可能屏蔽蓝奏云域名，请切换 Wi-Fi/流量后重试"
+                e is javax.net.ssl.SSLException ->
+                    "与 $host 的安全连接被中断，请切换网络后重试"
+                else -> "网络异常：${e.message ?: e.javaClass.simpleName}，请重试"
+            }
+        )
     }
 
     /** POST 表单：自动处理响应中的 acw 挑战重试 */
@@ -166,10 +185,12 @@ object LanzouApi {
                 )
                 .post(fb.build())
                 .build()
-            val body = client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) return@withContext ""
-                resp.body?.string() ?: ""
-            }
+            val body = runCatching {
+                client.newCall(req).execute().use { resp ->
+                    if (!resp.isSuccessful) return@withContext ""
+                    resp.body?.string() ?: ""
+                }
+            }.getOrElse { e -> throw translateNetworkError(e, url) }
             val challenge = acwRegex.find(body)?.groupValues?.getOrNull(1)
             if (challenge == null || acw != null) return@withContext body
             acw = calcAcwScV2(challenge) ?: return@withContext body
@@ -240,13 +261,33 @@ object LanzouApi {
     // ---------- 公开解析入口 ----------
 
     /**
-     * 解析分享页（文件或文件夹）。
+     * 解析分享页（文件或文件夹），带域名容灾：原域名网络层失败（DNS 污染/阻断/TLS 中断）
+     * 时自动换家族域名重试；业务错误（分享取消/需要密码等）直接抛出不再换域。
      * @param baseUrl 如 https://wwbll.lanzoul.com
      * @param shareId 路径段（b0188jmrwj 等）
      * @throws WrongPwdException 提取码错误
      * @throws NeedsPwdException 需要提取码但未提供
      */
     suspend fun fetchPage(baseUrl: String, shareId: String, pwd: String?, accountCookie: String?): LanzouPageResult {
+        val originalHost = runCatching { baseUrl.toHttpUrlOrNull()?.host }.getOrNull() ?: baseUrl
+        var lastError: Exception? = null
+        for (host in failoverHosts(originalHost)) {
+            try {
+                return fetchPageOnHost("https://$host", shareId, pwd, accountCookie)
+            } catch (e: LanzouNetException) {
+                lastError = e // 网络层失败 → 换下一个家族域名
+            }
+        }
+        throw lastError ?: IllegalStateException("页面加载失败，请检查网络后重试")
+    }
+
+    /** 在指定域名上解析分享页（原 fetchPage 逻辑） */
+    private suspend fun fetchPageOnHost(
+        baseUrl: String,
+        shareId: String,
+        pwd: String?,
+        accountCookie: String?
+    ): LanzouPageResult {
         val pageUrl = "$baseUrl/$shareId"
         var html = getHtml(pageUrl, "https://pc.woozooo.com", accountCookie)
         if (html.isBlank()) throw IllegalStateException("页面加载失败，请检查网络后重试")
@@ -367,11 +408,30 @@ object LanzouApi {
     }
 
     /**
-     * 获取单文件直链：
-     * 页面(或 iframe 子页) → POST ajaxfile/ajaxm → dom+url → 直链页 302 Location。
+     * 获取单文件直链（带域名容灾）：页面(或 iframe 子页) → POST ajaxfile/ajaxm
+     * → dom+url → 直链页 302 Location。原域名网络层失败时换家族域名重试。
      * @return 直链（CDN 地址）
      */
     suspend fun fetchDirectLink(baseUrl: String, shareId: String, pwd: String?, accountCookie: String?): String {
+        val originalHost = runCatching { baseUrl.toHttpUrlOrNull()?.host }.getOrNull() ?: baseUrl
+        var lastError: Exception? = null
+        for (host in failoverHosts(originalHost)) {
+            try {
+                return fetchDirectLinkOnHost("https://$host", shareId, pwd, accountCookie)
+            } catch (e: LanzouNetException) {
+                lastError = e // 网络层失败 → 换下一个家族域名
+            }
+        }
+        throw lastError ?: IllegalStateException("获取直链失败，请稍后重试")
+    }
+
+    /** 在指定域名上获取直链（原 fetchDirectLink 逻辑） */
+    private suspend fun fetchDirectLinkOnHost(
+        baseUrl: String,
+        shareId: String,
+        pwd: String?,
+        accountCookie: String?
+    ): String {
         val pageUrl = "$baseUrl/$shareId"
         var html = getHtml(pageUrl, "https://pc.woozooo.com", accountCookie)
         if (html.isBlank()) throw IllegalStateException("页面加载失败，请检查网络后重试")
@@ -427,7 +487,8 @@ object LanzouApi {
                 .headers(baseHeaders(downloadPage, null, accountCookie).build())
                 .get()
                 .build()
-            val resp = noRedirectClient.newCall(req).execute()
+            val resp = runCatching { noRedirectClient.newCall(req).execute() }
+                .getOrElse { e -> throw translateNetworkError(e, downloadPage) }
             val location = resp.use { it.header("Location") }
             if (location != null) return@withContext location
             val body = resp.body?.string() ?: ""

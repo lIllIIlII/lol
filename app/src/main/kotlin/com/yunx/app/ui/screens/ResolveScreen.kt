@@ -509,6 +509,8 @@ private fun platformLabel(platform: SharePlatform): String = when (platform) {
     SharePlatform.ILANZOU -> "蓝奏云优享版"
     SharePlatform.COWTRANSFER -> "奶牛快传"
     SharePlatform.FEIJI -> "小飞机网盘"
+    SharePlatform.CTFILE -> "城通网盘"
+    SharePlatform.WENSHUSHU -> "文叔叔"
 }
 
 /** 剪贴板分享链接提示卡片：检测到分享链接时，询问是否粘贴解析 */

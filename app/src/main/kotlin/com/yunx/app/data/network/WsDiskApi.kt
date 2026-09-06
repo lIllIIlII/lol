@@ -149,7 +149,7 @@ class WsDiskApi(val config: WsDiskConfig) {
             .set("Accept", "application/json, text/plain, */*")
             .set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
             .set("Origin", config.origin)
-            .set("Referer", "$config.origin/")
+            .set("Referer", "${config.origin}/")
     }
 
     /** POST：依次尝试各入口域名（网络层失败/非 2xx 切下一个；仅单入口时直接抛错） */
@@ -253,7 +253,12 @@ class WsDiskApi(val config: WsDiskConfig) {
         }
 
         val list: JSONArray = json.optJSONArray("list") ?: JSONArray()
-        if (list.length() == 0) throw IllegalStateException("分享内容为空或链接已失效")
+        // 空列表语义（官网前端/社区工具同款）：多半是未带提取码 / 提取码错，也可能分享失效
+        if (list.length() == 0) {
+            throw if (code.isNullOrBlank())
+                NeedsPwdException("分享无内容：可能需要提取码（在链接旁输入后重试）或已失效")
+            else WrongPwdException("提取码不正确或分享已失效")
+        }
         val info = list.optJSONObject(0) ?: throw IllegalStateException("分享数据异常")
         val shareFileIds = info.optString("fileIds")
         var userId = info.optString("userId")

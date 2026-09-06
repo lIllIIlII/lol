@@ -104,6 +104,8 @@ import com.yunx.app.data.repository.QuarkAccountRepository
 import com.yunx.app.data.repository.QuarkResolveRepository
 import com.yunx.app.data.repository.CowTransferResolveRepository
 import com.yunx.app.data.repository.LanzouResolveRepository
+import com.yunx.app.data.repository.CtfileResolveRepository
+import com.yunx.app.data.repository.WenshushuResolveRepository
 import com.yunx.app.data.repository.WsDiskResolveRepository
 import com.yunx.app.data.network.WsDiskApi
 import com.yunx.app.data.repository.SimpleAccountRepository
@@ -254,6 +256,9 @@ fun MainScreen() {
     // 小飞机 / 蓝奏云优享版：同源 WsDisk 协议引擎（v1.4.0 重写，根治未知文件夹）
     val feijiResolveRepository = remember { WsDiskResolveRepository(WsDiskApi.FEIJI) }
     val ilanzouResolveRepository = remember { WsDiskResolveRepository(WsDiskApi.ILANZOU) }
+    // 城通网盘 / 文叔叔（v1.5.0 新增，均沙箱实测验证）
+    val ctfileResolveRepository = remember { CtfileResolveRepository() }
+    val wenshushuResolveRepository = remember { WenshushuResolveRepository() }
     // 网盘认证备份：打包/恢复各平台凭证
     val backupManager = remember {
         AuthBackupManager(
@@ -461,6 +466,8 @@ fun MainScreen() {
             cowTransferResolveRepository,
             feijiResolveRepository,
             ilanzouResolveRepository,
+            ctfileResolveRepository,
+            wenshushuResolveRepository,
             downloadManager,
             db.bookmarkDao()
         )

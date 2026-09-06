@@ -37,6 +37,10 @@ object DownloadPlatform {
     const val FEIJI = "feiji"
     /** 蓝奏云优享版直链 */
     const val ILANZOU = "ilanzou"
+    /** 城通网盘直链 */
+    const val CTFILE = "ctfile"
+    /** 文叔叔直链 */
+    const val WENSHUSHU = "wenshushu"
     /** 通用/未知来源（手动添加、应用更新下载等） */
     const val GENERIC = "generic"
 }
