@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.viewmodel
 
 import androidx.compose.runtime.getValue
@@ -45,24 +27,16 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-/** 123 云盘浏览 UI 状态 */
 sealed interface Pan123CloudUiState {
     data object Loading : Pan123CloudUiState
     data class Loaded(
         val files: List<ShareFile>,
         val pathNames: List<String>,
-        /** 当前目录 id（根="0"） */
         val dirId: String
     ) : Pan123CloudUiState
     data class Error(val message: String) : Pan123CloudUiState
 }
 
-/**
- * 123 云盘浏览 ViewModel（参考 139/百度云盘）：
- * - 目录浏览（根/子目录/面包屑回退）+ 下拉刷新
- * - 文件操作：下载 / 重命名 / 移动 / 创建分享 / 删除 + 长按多选批量
- * 认证走 Bearer token（Pan123AccountEntity.accessToken），目录用 fileId（根="0"）。
- */
 class Pan123CloudViewModel(
     private val api: Pan123Api,
     private val tokenProvider: suspend () -> String?,
@@ -103,9 +77,6 @@ class Pan123CloudViewModel(
 
     init {
         loadRoot()
-        // 启动期未登录时上面的 loadRoot 会残留「请先登录…」错误态；登录态从无到有后自动重载根目录，
-        // 进网盘列表无需再手动点「重试」。drop(1) 跳过 VM 创建时的登录态快照（init 已加载，避免冷启动重复），
-        // distinctUntilChanged 过滤登录后 Cookie/Token 刷新等重复 upsert。
         viewModelScope.launch {
             loginState
                 .drop(1)
@@ -116,8 +87,6 @@ class Pan123CloudViewModel(
 
     private suspend fun token(): String =
         tokenProvider() ?: throw IllegalStateException("请先登录123云盘")
-
-    // ---------- 目录浏览 ----------
 
     fun loadRoot() {
         dirStack.clear()
@@ -148,8 +117,6 @@ class Pan123CloudViewModel(
         }
         load(dirStack.lastOrNull() ?: "0", nameStack.toList())
     }
-
-    // ---------- 多选 ----------
 
     fun enterMultiSelect(file: ShareFile) {
         multiSelectMode = true
@@ -194,12 +161,9 @@ class Pan123CloudViewModel(
         downloadTriggered = 0
     }
 
-    /** 中断当前下载（批量下载/文件夹下载） */
     fun cancelDownload() {
         downloadCancelRequested = true
     }
-
-    // ---------- 移动目标浏览 ----------
 
     fun openMoveRoot() {
         moveDirStack.clear()
@@ -240,15 +204,11 @@ class Pan123CloudViewModel(
         }
     }
 
-    // ---------- 单文件操作 ----------
-
-    /** 123 下载直链的请求头（CDN 直链需带 Referer，文档 §5.3.1） */
     private fun downloadHeaders(): Map<String, String> = mapOf(
         "User-Agent" to Pan123Constants.WEB_UA,
         "Referer" to Pan123Constants.DOWNLOAD_REFERER
     )
 
-    /** 递归收集文件夹内所有文件（保持目录结构） */
     private suspend fun collectFolderFiles(
         dirId: String,
         prefix: String,
@@ -264,7 +224,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 下载整个文件夹（操作菜单）：递归收集所有文件，保持目录结构保存到 Download */
     fun downloadFolder() {
         val folder = actionFile ?: return
         if (!folder.isdir) return
@@ -283,7 +242,6 @@ class Pan123CloudViewModel(
                 }
                 var okCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
@@ -315,15 +273,11 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 下载：getDownloadLink 取直链（CDN 直链，Referer 即可）→ 内置下载队列 */
-    /** 待确认的下载直链（单文件下载弹窗展示用，长按链接可复制） */
     var downloadLink by mutableStateOf<DownloadLink?>(null)
         private set
 
-    /** 与 downloadLink 配套的入队参数（弹窗确认后直接入队） */
     private var pendingDownload: PendingDownload? = null
 
-    /** 下载文件：取直链 → 弹出下载确认弹窗（对齐解析页行为，确认后入队） */
     fun downloadFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -337,7 +291,7 @@ class Pan123CloudViewModel(
                     size = link.size,
                     headers = downloadHeaders()
                 )
-                downloadLink = link // 弹下载确认弹窗（长按直链可复制）
+                downloadLink = link
             } catch (e: Exception) {
                 cloudMessage = e.message ?: "下载失败"
             } finally {
@@ -346,7 +300,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 下载弹窗确认：用已生成的直链入队 */
     fun startDownload() {
         val pd = pendingDownload ?: return
         downloadLink = null
@@ -372,13 +325,11 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 关闭下载弹窗（放弃下载） */
     fun dismissDownloadDialog() {
         downloadLink = null
         pendingDownload = null
     }
 
-    /** 重命名 */
     fun renameFile(newName: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -396,7 +347,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 移动 */
     fun moveFile(toDirId: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -414,7 +364,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 创建分享（有效期选择，可带提取码） */
     fun shareFile(expirationDays: Int?, sharePwd: String?) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -436,7 +385,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 删除（移入回收站） */
     fun deleteFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -454,9 +402,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    // ---------- 批量操作 ----------
-
-    /** 批量下载（不切页；选中文件夹时递归下载整个文件夹并保持目录结构） */
     fun downloadSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -481,7 +426,6 @@ class Pan123CloudViewModel(
                 }
                 var okCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
@@ -513,7 +457,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 批量分享 */
     fun shareSelected(expirationDays: Int?, sharePwd: String?) {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -538,7 +481,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 批量移动 */
     fun moveSelected(toDirId: String) {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -557,7 +499,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 批量删除 */
     fun deleteSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -576,9 +517,6 @@ class Pan123CloudViewModel(
         }
     }
 
-    // ---------- 内部 ----------
-
-    /** 下拉刷新 */
     fun refresh() {
         val current = uiState.value
         if (current !is Pan123CloudUiState.Loaded) {
@@ -619,12 +557,10 @@ class Pan123CloudViewModel(
         }
     }
 
-    /** 分享有效期 → ISO 过期时间（永久固定 2099，其他 = now + days，+08:00 格式，文档 §5.10） */
     private fun expiration(days: Int?): String {
         if (days == null) return Pan123Constants.EXPIRATION_FOREVER
         val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, days) }
         val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-        // 手动拼时区偏移（+08:00），避免 SimpleDateFormat "XXX" 在低版本 Android 不兼容
         val offsetMin = TimeZone.getDefault().getOffset(cal.timeInMillis) / 60000
         val sign = if (offsetMin >= 0) "+" else "-"
         val abs = kotlin.math.abs(offsetMin)
@@ -632,7 +568,6 @@ class Pan123CloudViewModel(
             String.format("%s%02d:%02d", sign, abs / 60, abs % 60)
     }
 
-    /** 有效期天数 → ShareResultDialog 的 expiredType（1=永久 2=1天 3=7天 4=30天） */
     private fun expireType(days: Int?): Int = when (days) {
         null -> 1
         1 -> 2

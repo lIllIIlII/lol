@@ -1,21 +1,3 @@
-/*
- * 吸析At - 文叔叔（wenshushu.cn）分享解析 API。
- *
- * 协议（由 fundrive/wssf 等开源实现 + 官网前端 app.js 交叉还原，沙箱实测验证）：
- * 1) POST /ap/login/anonymous {"dev_info":"{}"} → {code:0, data:{token}} → 全局 X-TOKEN 头
- * 2) 分享尾段 16 位 → POST /ap/task/token {"token":<code>} → tid；其他长度（11/12 位）即 tid
- * 3) POST /ap/task/mgrtask {"tid":<tid>,"password":<pwd>}
- *    → {code:0, data:{boxid(bid), ufileid(pid 根), file_size, file_count, ...}}
- *    - code 1013/TR_TP_ERR30：分享已失效；密码错误为其他 code/message
- * 4) POST /ap/ufile/nlist {"start":0,"sort":{"name":"asc"},"bid":<bid>,"pid":<pid>,
- *    "type":1,"options":{"uploader":"true"},"size":50}
- *    → {data:{fileList:[{fid, fname, type, size}]}}（type 2=文件夹 1=文件；start 步进翻页）
- * 5) POST /ap/dl/sign {"consumeCode":0,"type":1,"ufileid":<fid>} → {data:{url}} 直链
- *    - url 空且 ttNeed!=0 → 分享流量不足
- *
- * 注：/box/ 资源包链接匿名接口不可达（TR_E_NOFOLDER），仅支持 /f/ 文件传输分享。
- */
-
 package com.yunx.app.data.network
 
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +11,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-/** 文叔叔条目（文件或文件夹） */
 data class WssEntry(
     val fid: String,
     val fname: String,
@@ -37,7 +18,6 @@ data class WssEntry(
     val isDir: Boolean
 )
 
-/** 分享任务信息 */
 data class WssTaskInfo(
     val tid: String,
     val bid: String,
@@ -66,8 +46,6 @@ object WenshushuApi {
             .build()
     }
 
-    // ---------- 匿名登录（token 缓存 + 并发互斥） ----------
-
     @Volatile
     private var cachedToken: String? = null
     private var tokenExpiresAt = 0L
@@ -93,13 +71,11 @@ object WenshushuApi {
             val token = json.optJSONObject("data")?.optString("token").orEmpty()
             if (token.isBlank()) throw IllegalStateException("文叔叔匿名登录失败（无 token）")
             cachedToken = token
-            tokenExpiresAt = System.currentTimeMillis() + 30 * 60_000L // 30 分钟有效，到期自动重登
+            tokenExpiresAt = System.currentTimeMillis() + 30 * 60_000L
             token
         }
         return fresh
     }
-
-    // ---------- HTTP ----------
 
     private suspend fun postJson(url: String, jsonBody: String, token: String? = null): String =
         withContext(Dispatchers.IO) {
@@ -129,11 +105,9 @@ object WenshushuApi {
             }
         }
 
-    /** 带 token 的 POST：401/token 失效时自动重登一次 */
     private suspend fun postJsonWithToken(url: String, jsonBody: String): JSONObject {
         var token = ensureToken()
         var json = runCatching { JSONObject(postJson(url, jsonBody, token)) }.getOrNull()
-        // token 失效（非 0 且提示重新登录）→ 强制重登一次
         val msg = json?.optString("message").orEmpty()
         if (json != null && json.optInt("code", -1) != 0 && (msg.contains("登录", ignoreCase = true) || msg.contains("token", ignoreCase = true))) {
             token = ensureToken(force = true)
@@ -142,12 +116,6 @@ object WenshushuApi {
         return json ?: throw IllegalStateException("文叔叔接口响应异常，请重试")
     }
 
-    // ---------- 解析流程 ----------
-
-    /**
-     * 解析分享任务（16 位 token 自动换 tid）。
-     * @param code 链接尾段（11/12 位 tid 或 16 位 token）
-     */
     suspend fun fetchTaskInfo(code: String, pwd: String?): WssTaskInfo {
         val tid = if (code.length == 16) {
             val body = postJsonWithToken("$BASE/ap/task/token", "{\"token\":\"$code\"}")
@@ -186,17 +154,13 @@ object WenshushuApi {
         }
     }
 
-    /**
-     * 列出目录内容（自动翻页，防大目录截断；同页 fid 去重防服务端翻页异常）。
-     * @param pid 目录 fid（空/根 = 任务的 ufileid）
-     */
     suspend fun listFiles(bid: String, pid: String): List<WssEntry> = withContext(Dispatchers.IO) {
         val out = ArrayList<WssEntry>()
         val seen = HashSet<String>()
         var start = 0
         val size = 50
         var rounds = 0
-        while (rounds < 40) { // 最多 2000 条
+        while (rounds < 40) {
             val payload = "{\"start\":$start,\"sort\":{\"name\":\"asc\"}," +
                 "\"bid\":\"$bid\",\"pid\":\"$pid\",\"type\":1," +
                 "\"options\":{\"uploader\":\"true\"},\"size\":$size}"
@@ -224,7 +188,7 @@ object WenshushuApi {
                 )
                 added++
             }
-            if (added == 0) break // 翻页异常防护：全是重复条目即停止
+            if (added == 0) break
             start += fl.length()
             if (fl.length() < size) break
             rounds++
@@ -232,7 +196,6 @@ object WenshushuApi {
         out
     }
 
-    /** 获取单文件直链（dl/sign） */
     suspend fun fetchDirectLink(fid: String): String {
         val json = postJsonWithToken("$BASE/ap/dl/sign", "{\"consumeCode\":0,\"type\":1,\"ufileid\":\"$fid\"}")
         val d = json.optJSONObject("data")

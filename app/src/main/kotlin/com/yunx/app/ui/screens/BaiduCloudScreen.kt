@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import com.yunx.app.ui.SnackbarController
@@ -105,16 +87,8 @@ import com.yunx.app.ui.resolve.ShareFileRow
 import com.yunx.app.ui.viewmodel.BaiduCloudUiState
 import com.yunx.app.ui.viewmodel.BaiduCloudViewModel
 
-/** 百度非会员限速阈值：>300MB 提示 */
 private const val BAIDU_LIMIT_BYTES = 300L * 1024 * 1024
 
-/**
- * 百度网盘云盘浏览页（参考夸克/UC/迅雷云盘）：
- * - 目录浏览 + 下拉刷新 + 面包屑回退
- * - 长按多选（批量下载/分享/移动/删除）
- * - 文件/文件夹操作菜单（下载/重命名/移动/分享/删除）
- * 认证走 Cookie（BDUSS），目录用绝对路径。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BaiduCloudScreen(
@@ -126,7 +100,6 @@ fun BaiduCloudScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
-    // 系统返回键：多选模式下先退出多选；否则子目录返回上一级，根目录返回账号列表
     BackHandler {
         if (viewModel.multiSelectMode) {
             viewModel.exitMultiSelect()
@@ -135,12 +108,9 @@ fun BaiduCloudScreen(
             if (s is BaiduCloudUiState.Loaded && s.pathNames.isNotEmpty()) viewModel.back() else onExit()
         }
     }
-    // 文件列表滚动状态（返回顶部按钮用）
     val listState = rememberLazyListState()
-    // 搜索过滤（本地过滤当前目录文件）
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
-    // 各目录滚动位置记忆：进入文件夹/返回时按目录路径恢复，避免返回后列表回到顶部
     val scrollPositions = remember { mutableStateMapOf<String, Int>() }
     val loadedState = state as? BaiduCloudUiState.Loaded
     val displayFiles = remember(loadedState?.files, searchQuery) {
@@ -157,13 +127,11 @@ fun BaiduCloudScreen(
     var showShare by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // 百度非会员 >300MB 限速提示：记住「不再显示」，单文件/批量下载前拦截
     val settingsRepo = remember { SettingsRepository(context) }
     var limitHintDismissed by remember { mutableStateOf(settingsRepo.baiduLimitHintDismissed) }
     var showBaiduLimitDialog by remember { mutableStateOf(false) }
-    var pendingBaiduDownload by remember { mutableStateOf<String?>(null) } // "single" / "batch"
+    var pendingBaiduDownload by remember { mutableStateOf<String?>(null) }
 
-    /** 判断是否需要弹限速提示；需要则记录待执行动作并弹窗，否则直接执行 */
     fun maybeShowBaiduLimit(files: List<ShareFile>, action: String, onProceed: () -> Unit) {
         if (!limitHintDismissed && files.any { it.fsize > BAIDU_LIMIT_BYTES }) {
             pendingBaiduDownload = action
@@ -187,7 +155,6 @@ fun BaiduCloudScreen(
         }
     }
 
-    // 单文件下载确认弹窗（对齐解析页：展示直链，长按可复制）
     viewModel.downloadLink?.let { link ->
         DownloadLinkDialog(
             link = link,
@@ -234,7 +201,6 @@ fun BaiduCloudScreen(
                 }
 
                 is BaiduCloudUiState.Loaded -> Box(modifier = Modifier.fillMaxSize()) {
-                    // 目录加载完成、列表挂载后恢复该目录上次滚动位置（避免 Loading 阶段误触发）
                     val loadedKey = remember(s.pathNames) { s.pathNames.joinToString("/") }
                     LaunchedEffect(loadedKey) {
                         listState.scrollToItem(scrollPositions[loadedKey] ?: 0)
@@ -296,7 +262,6 @@ fun BaiduCloudScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
-                                            // 放大镜：点击展开/收起搜索框
                                             IconButton(onClick = { showSearch = !showSearch }) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Search,
@@ -320,7 +285,6 @@ fun BaiduCloudScreen(
                                             }
                                         )
                                     }
-                                    // 搜索框（点击放大镜展开；与面包屑保持间距 + 展开/收起动画）
                                     AnimatedVisibility(
                                     visible = showSearch && !viewModel.multiSelectMode,
                                         enter = expandVertically(tween(180)) + fadeIn(tween(180)),
@@ -352,7 +316,6 @@ fun BaiduCloudScreen(
                             if (s.pathNames.isNotEmpty()) {
                                 item {
                                     BackToParentItem(onClick = {
-                                        // 记录当前目录滚动位置，返回上级后恢复上级位置
                                         scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                                         viewModel.back()
                                     })
@@ -380,7 +343,6 @@ fun BaiduCloudScreen(
                                         if (viewModel.multiSelectMode) {
                                             viewModel.toggleSelect(file)
                                         } else if (file.isdir) {
-                                            // 记录当前目录滚动位置，进入子目录后恢复子目录位置
                                             scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                                             viewModel.openFolder(file)
                                         } else {
@@ -408,7 +370,6 @@ fun BaiduCloudScreen(
                         }
                     }
 
-                    // 返回顶部按钮（上滑离开顶部后显示；多选模式下上移避开底部批量栏）
                     ScrollToTopButton(
                         listState = listState,
                         modifier = Modifier
@@ -449,7 +410,6 @@ fun BaiduCloudScreen(
         }
     }
 
-    // 文件操作菜单
     if (showActionSheet && viewModel.actionFile != null) {
         BaiduActionSheet(
             file = viewModel.actionFile!!,
@@ -540,7 +500,6 @@ fun BaiduCloudScreen(
         )
     }
 
-    // 操作执行中加载弹窗（下载文件夹/批量下载显示进度）
     if (viewModel.isOperating) {
         AlertDialog(
             onDismissRequest = { },
@@ -564,7 +523,6 @@ fun BaiduCloudScreen(
         )
     }
 
-    // 百度非会员 >300MB 限速提示弹窗（可勾选不再显示）
     if (showBaiduLimitDialog) {
         var neverShow by remember { mutableStateOf(limitHintDismissed) }
         AlertDialog(
@@ -604,7 +562,6 @@ fun BaiduCloudScreen(
     }
 }
 
-/** 百度文件操作菜单：下载/分享/移动/重命名/删除 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BaiduActionSheet(
@@ -701,7 +658,6 @@ private fun BaiduActionItem(
     }
 }
 
-/** 重命名弹窗 */
 @Composable
 private fun BaiduRenameDialog(
     file: ShareFile,
@@ -737,7 +693,6 @@ private fun BaiduRenameDialog(
     )
 }
 
-/** 移动目录选择弹窗（独立浏览，不影响主列表） */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BaiduMoveSheet(
@@ -765,7 +720,6 @@ private fun BaiduMoveSheet(
                 onNavigate = { viewModel.moveNavigateToLevel(it) }
             )
             Spacer(modifier = Modifier.height(8.dp))
-            // 返回上一级：固定在目录区上方（不参与 AnimatedContent 过渡，避免与目录内容交叉叠加）
             if ((moveState as? BaiduCloudUiState.Loaded)?.pathNames?.isNotEmpty() == true) {
                 BackToParentItem(onClick = { viewModel.moveBack() })
                 Spacer(modifier = Modifier.height(4.dp))
@@ -831,7 +785,6 @@ private fun BaiduMoveSheet(
     }
 }
 
-/** 分享设置弹窗（百度必须带 4 位提取码 + 有效期） */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BaiduShareSheet(

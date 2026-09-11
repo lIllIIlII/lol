@@ -1,14 +1,3 @@
-/*
- * 吸析At - 液态玻璃系统（Liquid Glass）。
- *
- * 设计目标：真实玻璃观感 + 零逐帧开销 + 圆角完美裁剪。
- * - 壁纸解码一次并预模糊（降采样 + 三趟盒式模糊 + 双线性放大，近似高斯），
- *   玻璃面板绘制时直接从预模糊位图按屏幕坐标取样（一次 GPU 纹理搬运，无 RenderEffect）；
- * - 所有玻璃绘制都在 clip(shape) 内完成 → 模糊像素严格裁剪在圆角内，
- *   彻底修复「边角突出/不是圆角」的问题；
- * - 面板叠加：模糊取样 + 玻璃色罩 + 135° 渐变描边（边缘高光）+ 顶部镜面高光。
- */
-
 package com.yunx.app.ui.theme
 
 import android.content.Context
@@ -54,16 +43,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** 壁纸与玻璃的全局状态（进程级缓存，只计算一次）。
- *  采用 Compose 状态：模糊层就绪时，正在展示的玻璃面板（弹窗/胶囊栏）会自动重绘取样，
- *  后台线程写入全局快照同样触发重绘（Recomposer 观察全局写入）。 */
 object GlassWallpaper {
     var sharp: ImageBitmap? by mutableStateOf(null)
     var blurred: ImageBitmap? by mutableStateOf(null)
     @Volatile var screenW: Int = 0
     @Volatile var screenH: Int = 0
 
-    /** 壁纸版本号：自定义壁纸应用/清除时 +1，各 WallpaperBackground 监听并重载 */
     var version by mutableIntStateOf(0)
 
     private val decodeLock = Any()
@@ -71,7 +56,6 @@ object GlassWallpaper {
 
     private const val CUSTOM_FILE = "custom_wallpaper.img"
 
-    /** 自定义壁纸文件（无设置或文件不存在 → null） */
     private fun customFile(context: Context): File? {
         val name = runCatching { SettingsRepository(context).customWallpaper }.getOrNull()
         if (name.isNullOrBlank()) return null
@@ -79,18 +63,14 @@ object GlassWallpaper {
         return if (f.isFile && f.length() > 0) f else null
     }
 
-    /** 当前是否已启用自定义壁纸（设置页展示用） */
     fun hasCustom(context: Context): Boolean = customFile(context) != null
 
-    /** 应用自定义壁纸：把选中图片复制到 filesDir（原格式保存），成功后热重载。
-     *  返回 false = 打开/解码失败（非图片或损坏）。 */
     fun applyCustom(context: Context, uri: Uri): Boolean {
         return runCatching {
             val target = File(context.filesDir, CUSTOM_FILE)
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output) }
             } ?: return false
-            // 解码校验（非图片/损坏文件拒绝，避免设置后黑屏）
             val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeFile(target.absolutePath, opts)
             check(opts.outWidth > 0 && opts.outHeight > 0) { "不是有效图片" }
@@ -103,7 +83,6 @@ object GlassWallpaper {
         }
     }
 
-    /** 清除自定义壁纸，恢复内置默认 */
     fun clearCustom(context: Context) {
         runCatching {
             File(context.filesDir, CUSTOM_FILE).delete()
@@ -112,7 +91,6 @@ object GlassWallpaper {
         reload(context)
     }
 
-    /** 热重载：清空两层缓存并提升版本号（各处 WallpaperBackground 自动重新解码上屏） */
     fun reload(context: Context) {
         synchronized(decodeLock) {
             synchronized(blurLock) {
@@ -123,9 +101,6 @@ object GlassWallpaper {
         version += 1
     }
 
-    /** 解码 + 中心裁剪到屏幕尺寸（Dispatchers.IO 一次性执行）。
-     *  清晰层立即可用（背景先上屏），模糊层另行补算（玻璃面板取样用）。
-     *  优先解码用户自定义壁纸（filesDir），否则内置默认。 */
     fun ensureSharp(context: Context) {
         if (sharp != null) return
         synchronized(decodeLock) {
@@ -140,7 +115,6 @@ object GlassWallpaper {
                 }
                 screenW = bounds.width().coerceAtLeast(720)
                 screenH = bounds.height().coerceAtLeast(1280)
-                // 限制解码尺寸（内存友好）：长边 ≤ 1600
                 val maxSide = 1600
                 val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
                 val custom = customFile(context)
@@ -162,7 +136,6 @@ object GlassWallpaper {
         }
     }
 
-    /** 预模糊层（玻璃取样用）：依赖清晰层，后台补算，不影响背景上屏速度 */
     fun ensureBlurred(context: Context) {
         if (blurred != null) return
         synchronized(blurLock) {
@@ -175,7 +148,6 @@ object GlassWallpaper {
         }
     }
 
-    /** 中心裁剪到目标比例并缩放到目标尺寸（与背景 1:1 对应，玻璃取样才能对齐） */
     private fun centerCropScale(src: Bitmap, w: Int, h: Int): Bitmap {
         val srcRatio = src.width.toFloat() / src.height
         val dstRatio = w.toFloat() / h
@@ -194,7 +166,6 @@ object GlassWallpaper {
         return Bitmap.createScaledBitmap(cropped, w, h, true)
     }
 
-    /** 快速近似高斯模糊：降采样 1/10 → 三趟盒式模糊 → 双线性放大 */
     private fun Bitmap.fastBlur(scale: Int = 10, passes: Int = 3): Bitmap {
         val w = (width / scale).coerceAtLeast(2)
         val h = (height / scale).coerceAtLeast(2)
@@ -203,7 +174,6 @@ object GlassWallpaper {
         return Bitmap.createScaledBitmap(small, width, height, true)
     }
 
-    /** 单趟可分离盒式模糊（水平 + 垂直），滑窗半径 3（小图上等效大半径） */
     private fun boxBlur(src: Bitmap): Bitmap {
         val w = src.width
         val h = src.height
@@ -213,7 +183,6 @@ object GlassWallpaper {
         val out = IntArray(w * h)
         val r = 3
         val win = 2 * r + 1
-        // 水平
         for (y in 0 until h) {
             val row = y * w
             var a = 0; var rr = 0; var g = 0; var b = 0
@@ -232,7 +201,6 @@ object GlassWallpaper {
                 b += (add and 0xFF) - (sub and 0xFF)
             }
         }
-        // 垂直
         for (x in 0 until w) {
             var a = 0; var rr = 0; var g = 0; var b = 0
             for (y in -r..r) {
@@ -259,20 +227,14 @@ object GlassWallpaper {
         (a.coerceIn(0, 255) shl 24) or (r.coerceIn(0, 255) shl 16) or (g.coerceIn(0, 255) shl 8) or b.coerceIn(0, 255)
 }
 
-/** 全屏壁纸背景（清晰层 + 上下渐变暗化罩，内容更聚焦）
- *  分两步加载：清晰层就绪立即上屏（消除旧版「启动后背景长时间纯黑」的问题），
- *  模糊层随后补算供玻璃面板取样。 */
 @Composable
 fun WallpaperBackground(
     darkScrimTop: Float = 0.20f,
     darkScrimBottom: Float = 0.45f
 ) {
     val context = LocalContext.current
-    // 监听壁纸版本：自定义壁纸应用/清除后自动重新解码（version 变化 → 重跑本 effect）
     LaunchedEffect(GlassWallpaper.version) {
-        // 清晰层：解码完成即上屏（状态写入触发重组）
         withContext(Dispatchers.IO) { GlassWallpaper.ensureSharp(context) }
-        // 模糊层：后台补算（玻璃面板取样用；就绪后各面板自动重绘）
         withContext(Dispatchers.IO) { GlassWallpaper.ensureBlurred(context) }
     }
     Box(Modifier.fillMaxSize()) {
@@ -297,7 +259,6 @@ fun WallpaperBackground(
                     }
             )
         } else {
-            // 解码中：深色底避免闪白
             Box(
                 Modifier
                     .fillMaxSize()
@@ -307,17 +268,6 @@ fun WallpaperBackground(
     }
 }
 
-/**
- * 液态玻璃修饰符（静态面板专用，勿用于列表 item）：
- * 1. clip(shape) 先行 → 后续全部绘制（模糊取样/色罩/描边/高光）都被圆角裁剪，
- *    修复旧版「模糊从方角溢出」的问题；
- * 2. 从预模糊壁纸按「面板在屏幕上的真实位置」取样（onGloballyPositioned 记录，
- *    预模糊图与屏幕 1:1，故直接对应像素）；
- * 3. 玻璃色罩（上浅下深）+ 135° 渐变描边 + 顶部镜面高光。
- *
- * @param alignToScreen true=按屏幕坐标对齐取样（主窗口内面板）；
- *        false=取模糊图中心区域（Dialog 独立窗口坐标不同，模糊下视觉差异不可辨）
- */
 fun Modifier.liquidGlass(
     shape: Shape,
     darkTheme: Boolean = true,
@@ -347,7 +297,6 @@ fun Modifier.liquidGlass(
                     srcX = panelPos.x.coerceIn(0, (blur.width - srcW).coerceAtLeast(0))
                     srcY = panelPos.y.coerceIn(0, (blur.height - srcH).coerceAtLeast(0))
                 } else {
-                    // Dialog：取中心区域
                     srcW = size.width.toInt().coerceAtLeast(1).coerceAtMost(blur.width)
                     srcH = size.height.toInt().coerceAtLeast(1).coerceAtMost(blur.height)
                     srcX = (blur.width - srcW) / 2
@@ -361,7 +310,6 @@ fun Modifier.liquidGlass(
                     dstSize = IntSize(size.width.toInt().coerceAtLeast(1), size.height.toInt().coerceAtLeast(1))
                 )
             }
-            // 玻璃色罩（上浅下深，模拟厚度）
             drawRect(
                 Brush.verticalGradient(
                     listOf(
@@ -371,7 +319,6 @@ fun Modifier.liquidGlass(
                     )
                 )
             )
-            // 135° 渐变描边（边缘高光，在 clip 内绘制 → 圆角无突出）
             val borderBrush = Brush.linearGradient(
                 colors = listOf(
                     Color.White.copy(alpha = borderAlpha),
@@ -403,7 +350,6 @@ fun Modifier.liquidGlass(
                 }
                 else -> {}
             }
-            // 顶部内侧镜面高光
             drawRect(
                 brush = Brush.horizontalGradient(
                     listOf(

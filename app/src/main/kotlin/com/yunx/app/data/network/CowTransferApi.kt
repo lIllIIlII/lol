@@ -1,12 +1,3 @@
-/*
- * 吸析At - 奶牛快传（CowTransfer）分享解析 API。
- * 参考 Mikubill/cowtransfer-uploader 的公开接口：
- * 1. GET /api/transfer/transferdetail?url=<fid>&treceive=undefined&passcode=<pwd> → {guid, downloadName, deleted, uploaded}
- * 2. GET /api/transfer/files?page=<n>&guid=<guid> → {transferFileDtos:[{guid,fileName,size}], totalPages}
- * 3. POST /api/transfer/download?guid=<文件guid> → {link} 直链
- * 需携带 Referer https://cowtransfer.com/s/<fid> 与 cf-cs-k-20181214 cookie。
- */
-
 package com.yunx.app.data.network
 
 import kotlinx.coroutines.Dispatchers
@@ -88,10 +79,8 @@ object CowTransferApi {
         }
     }
 
-    /** 解析分享：guid + 文件列表（自动分页） */
     suspend fun fetchShare(fileId: String, pwd: String?): CowShareInfo {
         val referer = "$BASE/s/$fileId"
-        // 1. transferdetail
         val detailBody = httpGet(
             "$BASE/api/transfer/transferdetail?url=$fileId&treceive=undefined&passcode=${pwd.orEmpty()}",
             referer
@@ -110,7 +99,6 @@ object CowTransferApi {
         if (!detail.optBoolean("uploaded")) throw IllegalStateException("分享尚未完成上传")
         val title = detail.optString("downloadName").ifBlank { "奶牛快传分享" }
 
-        // 2. files 分页
         val entries = ArrayList<CowEntry>()
         var page = 0
         var totalPages = 1
@@ -132,7 +120,6 @@ object CowTransferApi {
         return CowShareInfo(guid = guid, title = title, entries = entries)
     }
 
-    /** 单文件直链 */
     suspend fun fetchDirectLink(fileId: String, fileGuid: String): String {
         val referer = "$BASE/s/$fileId"
         val body = httpPost("$BASE/api/transfer/download?guid=$fileGuid", referer)

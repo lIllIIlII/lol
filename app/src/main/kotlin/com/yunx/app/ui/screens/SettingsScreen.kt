@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 import android.Manifest
 import android.content.Context
@@ -58,6 +40,7 @@ import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Refresh
@@ -115,10 +98,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 可选的下载线程数档位（最高 512） */
 private val threadOptions = listOf(1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
 
-/** 按平台下载线程数设置项 */
 private data class ThreadPlatform(val platform: String, val label: String)
 
 private val threadPlatforms = listOf(
@@ -130,7 +111,6 @@ private val threadPlatforms = listOf(
     ThreadPlatform(DownloadPlatform.PAN123, "123 云盘"),
 )
 
-/** 跳转系统「应用通知」设置页（Android 8+ 通用入口；失败时退回应用详情页） */
 private fun openNotificationSettings(context: Context) {
     runCatching {
         context.startActivity(
@@ -147,9 +127,6 @@ private fun openNotificationSettings(context: Context) {
     }
 }
 
-/**
- * 设置页：下载线程数设置 + 主题外观 + 检查更新 + 日志与网盘认证。
- */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun SettingsScreen(
@@ -157,47 +134,36 @@ fun SettingsScreen(
     onThemeClick: () -> Unit,
     onAboutClick: () -> Unit,
     onSupportClick: () -> Unit,
-    /** 反馈联系页（扫码加开发者好友，v1.4.0 起替代 SMTP 邮件上报） */
     onFeedbackClick: () -> Unit,
     backupManager: AuthBackupManager,
-    /** 用应用内置下载器下载更新 APK（URL + 文件名），由 MainScreen 注入 DownloadManager */
     onDownloadUpdateApk: (url: String, fileName: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var showThreadsDialog by remember { mutableStateOf(false) }
     var showLogDialog by remember { mutableStateOf(false) }
-    // 检查更新结果（非空时弹更新对话框）
     var updateRelease by remember { mutableStateOf<UpdateChecker.Release?>(null) }
-    // 网盘认证导出弹窗（AES 加密 + 导出范围）
     var showExportAuthDialog by remember { mutableStateOf(false) }
-    // 网盘认证导入：加密文件内容（非空时弹解密密码框）
     var pendingImportContent by remember { mutableStateOf<String?>(null) }
     var showImportAuthDialog by remember { mutableStateOf(false) }
-    // 导出/导入处理中（PBKDF2 21万次迭代派生密钥，偶发 1~3s，期间显示加载弹窗）
     var isExporting by remember { mutableStateOf(false) }
     var isImporting by remember { mutableStateOf(false) }
-    // 按平台线程数：二级弹窗当前选择的平台
     var selectedThreadPlatform by remember { mutableStateOf(threadPlatforms.first()) }
     var showPlatformThreadDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // 下载保存目录（SAF）：本地状态驱动 UI 刷新，同时同步 SharedPreferences
     val settingsRepo = remember { SettingsRepository(context) }
     var downloadDirUri by remember { mutableStateOf(settingsRepo.downloadDirUri) }
     var showDevMenu by remember { mutableStateOf(false) }
-    // 网络与下载策略（本地状态驱动 UI，同时同步 SharedPreferences）
     var maxConcurrent by remember { mutableStateOf(settingsRepo.maxConcurrentDownloads) }
     var speedLimitBps by remember { mutableStateOf(settingsRepo.downloadSpeedLimit) }
     var retryCount by remember { mutableStateOf(settingsRepo.downloadRetryCount) }
     var showConcurrencyDialog by remember { mutableStateOf(false) }
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showRetryDialog by remember { mutableStateOf(false) }
-    // 用户体验与系统适配：锁屏保持下载 / 通知栏速度
     var keepLocked by remember { mutableStateOf(settingsRepo.keepDownloadWhenLocked) }
     var showSpeed by remember { mutableStateOf(settingsRepo.notificationShowSpeed) }
+    var askDownloadAfterSave by remember { mutableStateOf(settingsRepo.askDownloadAfterSave) }
     var showBatteryDialog by remember { mutableStateOf(false) }
-    // 通知是否可用（areNotificationsEnabled 不是 Compose 状态源，手动提升为状态，
-    // 权限回调/从系统设置返回时刷新，保证副标题文案即时同步）
     var notificationsEnabled by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
@@ -211,11 +177,9 @@ fun SettingsScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    // 通知权限（Android 13+）：未授权时点击「通知栏下载进度」先申请，授权后生效
     val notifyPermLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        // 回调后立即刷新通知可用状态（副标题同步）
         notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
         if (granted) {
             showSpeed = true
@@ -226,7 +190,6 @@ fun SettingsScreen(
         ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         if (uri != null) {
-            // 持久授权：应用重启后仍可写（API19+；Android 10/11+ 分区存储必需）
             val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             runCatching { context.contentResolver.takePersistableUriPermission(uri, flags) }
             settingsRepo.downloadDirUri = uri.toString()
@@ -234,7 +197,6 @@ fun SettingsScreen(
             SnackbarController.show("下载保存目录已更新")
         }
     }
-    // 导入网盘认证文件选择器：选择后先判断是否加密备份，加密则弹密码框
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -250,11 +212,9 @@ fun SettingsScreen(
                         return@launch
                     }
                     if (AuthCrypto.isEncrypted(text)) {
-                        // 加密备份：关闭加载弹窗，弹解密密码框（解密在确认后执行）
                         pendingImportContent = text
                         showImportAuthDialog = true
                     } else {
-                        // 明文备份：直接导入
                         val count = runCatching {
                             withContext(Dispatchers.IO) { backupManager.importJson(text) }
                         }.getOrElse { e ->
@@ -287,8 +247,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 下载保存目录：系统文件夹选择器（SAF，适配各 Android 版本分区存储）；
-        // 已自定义时卡片右侧内嵌「恢复默认」操作（不单独外露按钮）
         SettingsItem(
             icon = Icons.Outlined.FolderOpen,
             title = "下载保存目录",
@@ -319,7 +277,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 网络与下载策略
         SettingsItem(
             icon = Icons.Outlined.Layers,
             title = "最大同时下载任务数",
@@ -347,7 +304,6 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 用户体验与系统适配：锁屏保持下载 / 通知栏进度样式
         SettingsItem(
             icon = Icons.Outlined.Power,
             title = "锁屏后保持下载",
@@ -371,21 +327,18 @@ fun SettingsScreen(
             icon = Icons.Outlined.Notifications,
             title = "通知栏下载进度",
             description = when {
-                // 任意版本：系统通知被禁用（Android 13+ 未授权/低版本被系统或用户关闭）时提示去开启
                 !notificationsEnabled ->
                     "通知未开启，下载通知将不可见（点击去开启）"
                 showSpeed -> "完整通知：进度条 + 下载速度"
                 else -> "仅显示通知（隐藏下载速度）"
             },
             onClick = {
-                // Android 13+ 未授权：先申请运行时权限
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
                     ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
                     PackageManager.PERMISSION_GRANTED
                 ) {
                     notifyPermLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 } else if (!notificationsEnabled) {
-                    // 任意版本：系统通知被禁用时引导去系统设置开启
                     openNotificationSettings(context)
                 } else {
                     showSpeed = !showSpeed
@@ -403,6 +356,19 @@ fun SettingsScreen(
             title = "主题与外观",
             description = "主题色、动态色彩与深色模式",
             onClick = onThemeClick
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsItem(
+            icon = Icons.Outlined.CloudDownload,
+            title = "转存后询问下载",
+            description = if (askDownloadAfterSave) "转存到网盘后弹窗询问是否立即下载" else "转存后不询问（可去网盘页手动下载）",
+            onClick = {
+                askDownloadAfterSave = !askDownloadAfterSave
+                settingsRepo.askDownloadAfterSave = askDownloadAfterSave
+            },
+            trailing = { Switch(checked = askDownloadAfterSave, onCheckedChange = null) }
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -492,7 +458,7 @@ fun SettingsScreen(
             title = "关于吸析",
             description = "版本信息、支持平台与技术说明",
             onClick = onAboutClick,
-            onLongClick = { showDevMenu = true } // 长按打开隐藏开发调试菜单
+            onLongClick = { showDevMenu = true }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -504,7 +470,6 @@ fun SettingsScreen(
         )
     }
 
-    // 导出日志方式选择弹窗
     if (showLogDialog) {
         AlertDialog(
             onDismissRequest = { showLogDialog = false },
@@ -569,7 +534,6 @@ fun SettingsScreen(
         )
     }
 
-    // 隐藏开发调试菜单（长按「关于云析」打开）
     if (showDevMenu) {
         AlertDialog(
             onDismissRequest = { showDevMenu = false },
@@ -579,7 +543,6 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             showDevMenu = false
-                            // 调试用途：直接弹出更新弹窗（不判断是否已是最新版），预览弹窗 UI
                             scope.launch {
                                 val release = runCatching { UpdateChecker.fetchLatestRelease(context) }.getOrNull()
                                 updateRelease = release ?: UpdateChecker.Release(
@@ -600,7 +563,6 @@ fun SettingsScreen(
         )
     }
 
-    // 检查更新结果弹窗（发现新版本时展示，应用内下载）
     updateRelease?.let { release ->
         UpdateDialog(
             currentVersion = UpdateChecker.currentVersion(context),
@@ -622,13 +584,11 @@ fun SettingsScreen(
         )
     }
 
-    // 线程数选择弹窗（按平台）
     if (showThreadsDialog) {
         AlertDialog(
             onDismissRequest = { showThreadsDialog = false },
             title = { Text("下载线程数") },
             text = {
-                // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -686,7 +646,6 @@ fun SettingsScreen(
         )
     }
 
-    // 单个平台线程数选择（二级弹窗）
     if (showPlatformThreadDialog) {
         val current = settingsRepo.downloadThreadsFor(selectedThreadPlatform.platform)
         AlertDialog(
@@ -714,7 +673,6 @@ fun SettingsScreen(
                                     modifier = Modifier.weight(1f)
                                 )
                             }
-                            // 奇数个时补空占位，保持两列对齐
                             if (rowValues.size == 1) Spacer(modifier = Modifier.weight(1f))
                         }
                     }
@@ -726,7 +684,6 @@ fun SettingsScreen(
         )
     }
 
-    // 导出网盘认证弹窗（AES 加密密码 + 导出范围）
     if (showExportAuthDialog) {
         ExportAuthDialog(
             onDismiss = { showExportAuthDialog = false },
@@ -761,7 +718,6 @@ fun SettingsScreen(
         )
     }
 
-    // 导入加密备份弹窗（解密密码）
     if (showImportAuthDialog) {
         ImportAuthDialog(
             onDismiss = {
@@ -795,18 +751,15 @@ fun SettingsScreen(
         )
     }
 
-    // 导出/导入处理中：转圈加载弹窗（PBKDF2 派生密钥耗时较长，避免用户以为界面卡死）
     if (isExporting) OperationLoadingDialog("正在导出认证…")
     if (isImporting) OperationLoadingDialog("正在导入认证…")
 
-    // 最大同时下载任务数
     if (showConcurrencyDialog) {
         val options = listOf(1, 2, 3, 5, 8)
         AlertDialog(
             onDismissRequest = { showConcurrencyDialog = false },
             title = { Text("最大同时下载任务数") },
             text = {
-                // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -838,19 +791,15 @@ fun SettingsScreen(
         )
     }
 
-    // 下载速度限制：预设档位 + 自定义（KB/s）
     if (showSpeedDialog) {
         val presets = listOf(0L, 1L * 1024 * 1024, 2L * 1024 * 1024, 5L * 1024 * 1024, 10L * 1024 * 1024)
-        // 弹窗内临时选择（不立即写设置）：null=未操作，-1=自定义，其余=预设值
         var tempSelected by remember { mutableStateOf<Long?>(null) }
-        // 自定义输入：打开时若当前是自定义档位，带出原值（重新打开保留）
         var customKb by remember {
             mutableStateOf(
                 if (speedLimitBps > 0 && speedLimitBps !in presets) (speedLimitBps / 1024).toString() else ""
             )
         }
         val effective = tempSelected ?: speedLimitBps
-        // 自定义选中态：显式识别「-1=自定义」哨兵；未操作时按当前值是否为自定义档位判断
         val isCustom = when {
             tempSelected == -1L -> true
             tempSelected == null -> speedLimitBps > 0 && speedLimitBps !in presets
@@ -860,7 +809,6 @@ fun SettingsScreen(
             onDismissRequest = { showSpeedDialog = false },
             title = { Text("下载速度限制") },
             text = {
-                // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -884,7 +832,6 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    // 自定义档位：点击单选即可选中（进入自定义模式）
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
@@ -893,7 +840,6 @@ fun SettingsScreen(
                             selected = isCustom,
                             onClick = {
                                 tempSelected = -1L
-                                // 当前已是自定义值时带出原值，便于修改
                                 if (speedLimitBps > 0 && speedLimitBps !in presets && customKb.isBlank()) {
                                     customKb = (speedLimitBps / 1024).toString()
                                 }
@@ -904,7 +850,6 @@ fun SettingsScreen(
                             value = customKb,
                             onValueChange = {
                                 customKb = it.filter(Char::isDigit).take(6)
-                                // 输入即视为选择自定义
                                 tempSelected = -1L
                             },
                             modifier = Modifier.weight(1f),
@@ -918,20 +863,17 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        // 以当前选中项为准：选自定义则应用输入；选预设则应用预设值
                         if (isCustom) {
                             val kb = customKb.toLongOrNull()?.coerceAtLeast(1L)
                             if (kb != null) {
                                 speedLimitBps = kb * 1024
                                 settingsRepo.downloadSpeedLimit = kb * 1024
                             }
-                            // 自定义输入为空：保持原值
                         } else if (tempSelected != null) {
                             val v = tempSelected ?: speedLimitBps
                             speedLimitBps = v
                             settingsRepo.downloadSpeedLimit = v
                         }
-                        // 未做任何选择：保持当前值
                         showSpeedDialog = false
                     }
                 ) { Text("确定") }
@@ -942,14 +884,12 @@ fun SettingsScreen(
         )
     }
 
-    // 失败自动重试次数
     if (showRetryDialog) {
         val options = listOf(0, 1, 2, 3, 5, 8, 10)
         AlertDialog(
             onDismissRequest = { showRetryDialog = false },
             title = { Text("失败自动重试") },
             text = {
-                // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -984,7 +924,6 @@ fun SettingsScreen(
         )
     }
 
-    // 锁屏保持下载：引导加入「忽略电池优化」白名单
     if (showBatteryDialog) {
         AlertDialog(
             onDismissRequest = { showBatteryDialog = false },
@@ -1017,7 +956,6 @@ fun SettingsScreen(
     }
 }
 
-/** 导出网盘认证弹窗：AES 加密密码 + 导出范围（仅已登录 / 全部绑定） */
 @Composable
 private fun ExportAuthDialog(
     onDismiss: () -> Unit,
@@ -1085,7 +1023,6 @@ private fun ExportAuthDialog(
     )
 }
 
-/** 导入加密备份弹窗：输入解密密码 */
 @Composable
 private fun ImportAuthDialog(
     onDismiss: () -> Unit,
@@ -1125,7 +1062,6 @@ private fun ImportAuthDialog(
     )
 }
 
-/** 操作处理中弹窗：转圈加载 + 提示文案，禁止关闭（防止中途取消导致导入/导出状态不一致） */
 @Composable
 private fun OperationLoadingDialog(message: String) {
     AlertDialog(
@@ -1161,9 +1097,7 @@ private fun SettingsItem(
     title: String,
     description: String,
     onClick: () -> Unit,
-    /** 长按回调（隐藏菜单等）；null 时不启用长按 */
     onLongClick: (() -> Unit)? = null,
-    /** 自定义尾部内容（如「恢复默认」操作）；null 时显示默认 ChevronRight */
     trailing: @Composable (() -> Unit)? = null
 ) {
     val shape = MaterialTheme.shapes.large
@@ -1221,7 +1155,6 @@ private fun SettingsItem(
     }
 }
 
-/** 线程数单选行（用于弹窗两列布局，每行占半宽） */
 @Composable
 private fun RadioThreadRow(
     value: Int,
@@ -1247,7 +1180,6 @@ private fun RadioThreadRow(
     }
 }
 
-/** 速度限制展示文案：0=不限速；>=1MB/s 显示 MB/s，否则 KB/s */
 private fun speedLimitText(bps: Long): String {
     if (bps <= 0) return "不限速"
     return if (bps >= 1024 * 1024) {

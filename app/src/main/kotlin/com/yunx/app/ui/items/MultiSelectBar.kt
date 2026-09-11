@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.items
 
 import androidx.compose.foundation.clickable
@@ -40,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
-/** 多选底部批量操作项 */
 internal data class MultiSelectAction(
     val label: String,
     val icon: ImageVector,
@@ -48,7 +29,6 @@ internal data class MultiSelectAction(
     val onClick: () -> Unit
 )
 
-/** 多选模式底部批量操作栏（云盘页/解析页共用） */
 @Composable
 internal fun MultiSelectBar(
     count: Int,

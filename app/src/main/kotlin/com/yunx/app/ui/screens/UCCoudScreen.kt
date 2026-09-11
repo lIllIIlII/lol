@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import com.yunx.app.ui.SnackbarController
@@ -103,12 +85,6 @@ import com.yunx.app.ui.resolve.ShareFileRow
 import com.yunx.app.ui.viewmodel.UCCloudUiState
 import com.yunx.app.ui.viewmodel.UCCoudViewModel
 
-/**
- * UC 网盘云盘浏览页（参考夸克 CloudDriveScreen）：
- * - 目录浏览 + 下拉刷新 + 面包屑回退
- * - 长按多选（批量下载/分享/移动）
- * - 文件/文件夹操作菜单（下载/重命名/移动/分享）
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UCCoudScreen(
@@ -120,7 +96,6 @@ fun UCCoudScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
-    // 系统返回键：多选模式下先退出多选；否则子目录返回上一级，根目录返回账号列表
     BackHandler {
         if (viewModel.multiSelectMode) {
             viewModel.exitMultiSelect()
@@ -129,12 +104,9 @@ fun UCCoudScreen(
             if (s is UCCloudUiState.Loaded && s.pathNames.isNotEmpty()) viewModel.back() else onExit()
         }
     }
-    // 文件列表滚动状态（返回顶部按钮用）
     val listState = rememberLazyListState()
-    // 搜索过滤（本地过滤当前目录文件）
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
-    // 各目录滚动位置记忆：进入文件夹/返回时按目录路径恢复，避免返回后列表回到顶部
     val scrollPositions = remember { mutableStateMapOf<String, Int>() }
     val loadedState = state as? UCCloudUiState.Loaded
     val displayFiles = remember(loadedState?.files, searchQuery) {
@@ -145,12 +117,10 @@ fun UCCoudScreen(
     val currentDirKey = remember(loadedState?.pathNames) {
         loadedState?.pathNames?.joinToString("/") ?: ""
     }
-    // 文件操作弹窗步骤
     var showActionSheet by remember { mutableStateOf(false) }
     var showRename by remember { mutableStateOf(false) }
     var showMove by remember { mutableStateOf(false) }
     var showShare by remember { mutableStateOf(false) }
-    // 删除确认（单文件/批量共用）
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.cloudMessage) {
@@ -160,7 +130,6 @@ fun UCCoudScreen(
         }
     }
 
-    // 下载入队后切到下载页（一次性消费）
     LaunchedEffect(viewModel.downloadTriggered) {
         if (viewModel.downloadTriggered > 0) {
             viewModel.consumeDownloadTriggered()
@@ -168,7 +137,6 @@ fun UCCoudScreen(
         }
     }
 
-    // 单文件下载确认弹窗（对齐解析页：展示直链，长按可复制）
     viewModel.downloadLink?.let { link ->
         DownloadLinkDialog(
             link = link,
@@ -181,7 +149,6 @@ fun UCCoudScreen(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        // 目录切换（进入文件夹/返回）：列表淡入淡出过渡
         AnimatedContent(
             targetState = state,
             transitionSpec = {
@@ -216,7 +183,6 @@ fun UCCoudScreen(
             }
 
             is UCCloudUiState.Loaded -> Box(modifier = Modifier.fillMaxSize()) {
-                // 目录加载完成、列表挂载后恢复该目录上次滚动位置（避免 Loading 阶段误触发）
                 val loadedKey = remember(s.pathNames) { s.pathNames.joinToString("/") }
                 LaunchedEffect(loadedKey) {
                     listState.scrollToItem(scrollPositions[loadedKey] ?: 0)
@@ -278,7 +244,6 @@ fun UCCoudScreen(
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
-                                        // 放大镜：点击展开/收起搜索框
                                         IconButton(onClick = { showSearch = !showSearch }) {
                                             Icon(
                                                 imageVector = Icons.Outlined.Search,
@@ -302,7 +267,6 @@ fun UCCoudScreen(
                                         }
                                     )
                                 }
-                                // 搜索框（点击放大镜展开；与面包屑保持间距 + 展开/收起动画）
                                 AnimatedVisibility(
                                     visible = showSearch && !viewModel.multiSelectMode,
                                     enter = expandVertically(tween(180)) + fadeIn(tween(180)),
@@ -334,7 +298,6 @@ fun UCCoudScreen(
                         if (s.pathNames.isNotEmpty()) {
                             item {
                                 BackToParentItem(onClick = {
-                                    // 记录当前目录滚动位置，返回上级后恢复上级位置
                                     scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                                     viewModel.back()
                                 })
@@ -362,7 +325,6 @@ fun UCCoudScreen(
                                     if (viewModel.multiSelectMode) {
                                         viewModel.toggleSelect(file)
                                     } else if (file.isdir) {
-                                        // 记录当前目录滚动位置，进入子目录后恢复子目录位置
                                         scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                                         viewModel.openFolder(file)
                                     } else {
@@ -390,7 +352,6 @@ fun UCCoudScreen(
                     }
                 }
 
-                // 返回顶部按钮（上滑离开顶部后显示；多选模式下上移避开底部批量栏）
                 ScrollToTopButton(
                     listState = listState,
                     modifier = Modifier
@@ -401,7 +362,6 @@ fun UCCoudScreen(
                         )
                 )
 
-                // 多选模式：底部批量操作栏（底部滑入淡入，退出反向）
                 AnimatedVisibility(
                     visible = viewModel.multiSelectMode,
                     enter = slideInVertically(tween(220)) { it } + fadeIn(tween(220)),
@@ -432,7 +392,6 @@ fun UCCoudScreen(
     }
     }
 
-    // 文件操作菜单（下载/重命名/移动/分享）
     if (showActionSheet && viewModel.actionFile != null) {
         UCActionSheet(
             file = viewModel.actionFile!!,
@@ -469,7 +428,6 @@ fun UCCoudScreen(
         )
     }
 
-    // 重命名弹窗
     if (showRename && viewModel.actionFile != null) {
         RenameCloudDialog(
             file = viewModel.actionFile!!,
@@ -478,7 +436,6 @@ fun UCCoudScreen(
         )
     }
 
-    // 移动目录选择弹窗（单文件/多选共用；多选时 actionFile 为 null，不能依赖它判断）
     if (showMove) {
         UCMoveSheet(
             viewModel = viewModel,
@@ -486,7 +443,6 @@ fun UCCoudScreen(
         )
     }
 
-    // 分享设置弹窗
     if (showShare) {
         UCShareSheet(
             viewModel = viewModel,
@@ -494,7 +450,6 @@ fun UCCoudScreen(
         )
     }
 
-    // 分享结果
     viewModel.shareResult?.let { info ->
         ShareResultDialog(
             info = info,
@@ -502,7 +457,6 @@ fun UCCoudScreen(
         )
     }
 
-    // 删除确认（单文件/批量共用）
     if (showDeleteConfirm) {
         val deleting = if (viewModel.multiSelectMode) "选中的 ${viewModel.selected.size} 项" else "「${viewModel.actionFile?.fname ?: ""}」"
         AlertDialog(
@@ -525,7 +479,6 @@ fun UCCoudScreen(
         )
     }
 
-    // 操作执行中加载弹窗（下载文件夹/批量下载显示进度）
     if (viewModel.isOperating) {
         AlertDialog(
             onDismissRequest = { },
@@ -550,7 +503,6 @@ fun UCCoudScreen(
     }
 }
 
-/** UC 文件操作菜单：下载/重命名/移动/分享 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UCActionSheet(
@@ -647,7 +599,6 @@ private fun UCActionItem(
     }
 }
 
-/** 重命名弹窗 */
 @Composable
 private fun RenameCloudDialog(
     file: ShareFile,
@@ -683,7 +634,6 @@ private fun RenameCloudDialog(
     )
 }
 
-/** 移动目录选择弹窗（独立浏览，不影响主列表） */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UCMoveSheet(
@@ -711,12 +661,10 @@ private fun UCMoveSheet(
                 onNavigate = { viewModel.moveNavigateToLevel(it) }
             )
             Spacer(modifier = Modifier.height(8.dp))
-// 返回上一级：固定在目录区上方（不参与 AnimatedContent 过渡，避免与目录内容交叉叠加）
             if ((moveState as? UCCloudUiState.Loaded)?.pathNames?.isNotEmpty() == true) {
                 BackToParentItem(onClick = { viewModel.moveBack() })
                 Spacer(modifier = Modifier.height(4.dp))
             }
-            // 移动目录切换：淡入过渡
             AnimatedContent(
                 targetState = moveState,
                 transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(140)) },
@@ -765,7 +713,6 @@ private fun UCMoveSheet(
             Button(
                 onClick = {
                     val to = (moveState as? UCCloudUiState.Loaded)?.dirFid ?: "0"
-                    // 多选模式走批量移动，单文件走单文件移动
                     if (viewModel.multiSelectMode) viewModel.moveSelected(to) else viewModel.moveFile(to)
                     onDismiss()
                 },
@@ -779,7 +726,6 @@ private fun UCMoveSheet(
     }
 }
 
-/** 分享设置弹窗（提取码/有效期） */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun UCShareSheet(

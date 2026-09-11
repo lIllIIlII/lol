@@ -1,8 +1,3 @@
-/*
- * 吸析At - 欢迎弹窗（iOS 风格，替代旧版全屏欢迎页）。
- * 首次启动展示：应用图标 + 简介 + 三条核心能力 + 开始使用。
- */
-
 package com.yunx.app.ui.screens
 
 import androidx.compose.foundation.Image
@@ -48,7 +43,6 @@ fun WelcomeDialog(
         onDismissRequest = null,
         dismissOnScrim = false
     ) {
-        // 应用图标（新 logo）
         Image(
             painter = painterResource(R.drawable.icon),
             contentDescription = null,
@@ -75,7 +69,6 @@ fun WelcomeDialog(
 
         IosDialogActions(
             primary = ("开始使用") to {
-                // 自管首次引导标记（队列宿主无需关心存储）
                 runCatching {
                     context.getSharedPreferences("yunx_prefs", android.content.Context.MODE_PRIVATE)
                         .edit()

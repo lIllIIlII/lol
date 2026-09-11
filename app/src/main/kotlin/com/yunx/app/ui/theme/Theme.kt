@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.theme
 
 import android.app.Activity
@@ -270,22 +252,17 @@ fun ComposeEmptyActivityTheme(
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
-    // 主题设置由 ThemeController 内存状态驱动（首次从 SharedPreferences 加载）
     ThemeController.init(context)
-    // 深色模式：0=跟随系统，1=浅色，2=深色
     val isDark = when (ThemeController.darkMode) {
         1 -> false
         2 -> true
         else -> darkTheme
     }
     val colorScheme = when {
-        // 动态色彩：Android 12+ 从系统壁纸取色
         ThemeController.colorMode == 0 && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        // 自定义种子色（预选色 / 颜色卡自选）：基于种子色生成完整 Material3 方案
         ThemeController.colorMode == 2 -> seedColorScheme(ThemeController.seedColor, isDark)
-        // 默认蓝色（低版本动态色彩不可用时也回退到这里）
         isDark -> darkScheme
         else -> lightScheme
     }
@@ -297,10 +274,6 @@ fun ComposeEmptyActivityTheme(
     )
 }
 
-/**
- * 基于种子色生成完整 Material3 颜色方案（浅色/深色），
- * 使用 material-color-utilities 的 Tonal Spot 方案（与 Material You 同源算法）。
- */
 @Composable
 private fun seedColorScheme(seedArgb: Long, dark: Boolean): androidx.compose.material3.ColorScheme {
     val scheme = remember(seedArgb, dark) {

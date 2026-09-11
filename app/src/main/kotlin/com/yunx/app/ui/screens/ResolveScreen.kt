@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ClipboardManager
@@ -94,25 +76,16 @@ import com.yunx.app.ui.viewmodel.ResolveViewModel
 import com.yunx.app.ui.viewmodel.UCCoudViewModel
 import com.yunx.app.ui.viewmodel.XunleiCloudViewModel
 
-/**
- * 解析页：输入分享链接与提取码 → 解析 → 展示分享详情 → 获取下载直链。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ResolveScreen(
     scrollBehavior: TopAppBarScrollBehavior,
     viewModel: ResolveViewModel,
-    /** 夸克云盘浏览 ViewModel（分享文件转存目录选择用） */
     quarkCloudViewModel: QuarkCloudViewModel,
-    /** 迅雷网盘云盘浏览 ViewModel（迅雷分享转存目录选择用） */
     xunleiCloudViewModel: XunleiCloudViewModel,
-    /** 百度网盘云盘浏览 ViewModel（百度分享转存目录选择用） */
     baiduCloudViewModel: BaiduCloudViewModel,
-    /** 139 网盘云盘浏览 ViewModel（139 分享转存目录选择用） */
     c139CloudViewModel: C139CloudViewModel,
-    /** UC 网盘云盘浏览 ViewModel（UC 分享转存目录选择用） */
     ucCloudViewModel: UCCoudViewModel,
-    /** 123 云盘浏览 ViewModel（123 分享转存目录选择用） */
     pan123CloudViewModel: Pan123CloudViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -121,23 +94,16 @@ fun ResolveScreen(
     val downloadError = viewModel.downloadError
     val context = LocalContext.current
 
-    // 详情页文件列表滚动状态（提升到 AnimatedContent 外层：进入文件夹/返回时列表重建，
-    // 若放在 ShareDetailScreen 内会随目录切换丢失，导致返回后列表回到顶部）
     val detailListState = rememberLazyListState()
-    // 各目录滚动位置记忆（key = 目录路径；进入文件夹/返回时恢复对应位置）
     val detailScrollPositions = remember { mutableStateMapOf<String, Int>() }
 
-    // 输入框状态提升到页面层：进入详情/文件夹再返回时不清空
     var link by rememberSaveable { mutableStateOf("") }
     var pwd by rememberSaveable { mutableStateOf("") }
     var pwdEdited by rememberSaveable { mutableStateOf(false) }
 
-    // 剪贴板分享链接提示状态：待提示的剪贴板文本 + 已忽略的文本
-    // 用 rememberSaveable：切换 Tab 后返回仍保留（避免「忽略后切页回来又弹」）
     var clipboardSuggestion by rememberSaveable { mutableStateOf<String?>(null) }
     var ignoredClipboard by rememberSaveable { mutableStateOf<String?>(null) }
 
-    // 检测函数：读取剪贴板，满足条件则设置提示（三重触发：组合时 / ON_RESUME / 剪贴板变化）
     val maybeSuggestClipboard: () -> Unit = {
         val text = readClipboardSafely(context)
         if (text != null &&
@@ -154,21 +120,17 @@ fun ResolveScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     DisposableEffect(lifecycleOwner, clipboard) {
-        // 剪贴板变化立即检测（前台最灵敏，复制即提示）
         val clipListener = ClipboardManager.OnPrimaryClipChangedListener {
             maybeSuggestClipboard()
-            // 部分 ROM 剪贴板内容写入有延迟，300ms 后重试一次
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                 maybeSuggestClipboard()
             }, 300)
         }
         clipboard.addPrimaryClipChangedListener(clipListener)
-        // 打开应用 / 从后台切回时检测
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) maybeSuggestClipboard()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        // 冷启动兜底：组合完成立即检测一次（避免 ON_RESUME 早于 observer 注册导致漏检）
         maybeSuggestClipboard()
         onDispose {
             clipboard.removePrimaryClipChangedListener(clipListener)
@@ -176,8 +138,6 @@ fun ResolveScreen(
         }
     }
 
-    // Android 11 及以下：轻量轮询兜底（2s 一次）。
-    // 部分 ROM（如 vivo）剪贴板监听不触发时仍能识别；Android 12+ 读剪贴板会弹系统提示，不轮询。
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         LaunchedEffect(Unit) {
             while (true) {
@@ -187,14 +147,12 @@ fun ResolveScreen(
         }
     }
 
-    // 链接变化时自动匹配提取码（用户未手动输入时）
     LaunchedEffect(link) {
         if (!pwdEdited && pwd.isEmpty()) {
             ShareLinkParser.parse(link)?.pwd?.let { pwd = it }
         }
     }
 
-    // 下载错误提示
     LaunchedEffect(downloadError) {
         downloadError?.let {
             SnackbarController.show(it)
@@ -203,7 +161,6 @@ fun ResolveScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // 状态切换过渡：输入态/加载/详情/错误之间平滑淡入淡出（对齐网盘页：不上下移动）
         AnimatedContent(
             targetState = state,
             transitionSpec = {
@@ -225,9 +182,7 @@ fun ResolveScreen(
             scrollBehavior = scrollBehavior,
             listState = detailListState,
             scrollPositions = detailScrollPositions,
-                    // 顶部左上角返回：退出文件页回到输入页（输入框内容保留）
                     onExit = { viewModel.backToInput() },
-                    // 列表「返回上一级」：子目录回上级，根目录回输入页
                     onBack = { viewModel.navigateBack() }
                 )
                 is ResolveUiState.Loading -> LoadingContent()
@@ -252,8 +207,6 @@ fun ResolveScreen(
             }
         }
 
-        // 剪贴板分享链接提示卡片（仅输入页、有待提示内容时显示，带弹出动画）
-        // animatedSuggestion 保留最后提示内容，保证退出动画期间卡片不消失
         var animatedSuggestion by remember { mutableStateOf<String?>(null) }
         LaunchedEffect(clipboardSuggestion) {
             clipboardSuggestion?.let { animatedSuggestion = it }
@@ -291,7 +244,6 @@ fun ResolveScreen(
         }
     }
 
-    // 获取下载直链加载弹窗（转存/取链需要时间，避免无反馈）
     if (viewModel.isFetchingDownloadLink) {
         AlertDialog(
             onDismissRequest = { },
@@ -313,7 +265,6 @@ fun ResolveScreen(
         )
     }
 
-    // 下载直链弹窗
     downloadLink?.let { link ->
         DownloadLinkDialog(
             link = link,
@@ -346,7 +297,6 @@ private fun ResolveInputContent(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 液态玻璃输入卡片（模糊取样被圆角裁剪，边角无突出）
         val isDark = MaterialTheme.colorScheme.background.let { bg ->
             (0.299f * bg.red + 0.587f * bg.green + 0.114f * bg.blue) <= 0.5f
         }
@@ -468,7 +418,6 @@ private fun ResolveInputContent(
     }
 }
 
-/** 全屏加载中（进入文件夹/解析中展示，避免闪回输入页） */
 @Composable
 private fun LoadingContent() {
     Box(
@@ -487,7 +436,6 @@ private fun LoadingContent() {
     }
 }
 
-/** 安全读取剪贴板最新文本；失败返回 null（部分 ROM 可能限制剪贴板访问） */
 private fun readClipboardSafely(context: Context): String? = runCatching {
     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     cm.primaryClip
@@ -497,7 +445,6 @@ private fun readClipboardSafely(context: Context): String? = runCatching {
         ?.toString()
 }.getOrNull()
 
-/** 平台名称（提示卡片展示） */
 private fun platformLabel(platform: SharePlatform): String = when (platform) {
     SharePlatform.QUARK -> "夸克网盘"
     SharePlatform.UC -> "UC 网盘"
@@ -513,7 +460,6 @@ private fun platformLabel(platform: SharePlatform): String = when (platform) {
     SharePlatform.WENSHUSHU -> "文叔叔"
 }
 
-/** 剪贴板分享链接提示卡片：检测到分享链接时，询问是否粘贴解析 */
 @Composable
 private fun ClipboardSuggestCard(
     platformName: String,

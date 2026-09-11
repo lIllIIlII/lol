@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.repository
 
 import com.yunx.app.data.network.UCApi
@@ -25,12 +7,8 @@ import com.yunx.app.data.network.model.DownloadLink
 import com.yunx.app.data.network.model.ShareFile
 import com.yunx.app.data.network.model.ShareSession
 
-/**
- * UC 分享解析仓库：token → 列表 → 转存临时目录 → 下载直链。
- */
 class UCResolveRepository(private val api: UCApi) : ShareResolveRepository {
 
-    /** 常见视频扩展名（分享视频走 play 转码流绕过会员墙；play 需个人云盘 fid，先转存临时目录） */
     private val videoExts = setOf("mp4", "mkv", "mov", "avi", "webm", "flv", "ts", "m3u8", "wmv", "rmvb")
 
     private fun isVideo(name: String): Boolean =
@@ -52,7 +30,6 @@ class UCResolveRepository(private val api: UCApi) : ShareResolveRepository {
 
     override suspend fun listFiles(session: ShareSession, dirFid: String, cookie: String): Result<List<ShareFile>> =
         runCatching {
-            // 必须用 transfer_share/detail（带 stoken），返回的 share_fid_token 与 stoken 绑定
             val all = mutableListOf<ShareFile>()
             var page = 1
             do {
@@ -108,16 +85,11 @@ class UCResolveRepository(private val api: UCApi) : ShareResolveRepository {
         onFailure = { Result.failure(it) }
     )
 
-    /**
-     * UC 官方下载流程：无需转存！
-     * 直接用分享 fid + fid_token + stoken + pwd_id 调 download 接口取直链。
-     */
     override suspend fun getShareDownloadLink(
         session: ShareSession,
         file: ShareFile,
         cookie: String
     ): Result<DownloadLink> = runCatching {
-        // 视频：优先用分享态 video_preview 取**原画**直链（走播放回调 checkplay，不换片，绕过宣传片替换）
         if (isVideo(file.fname)) {
             val preview = api.getVideoPreview(
                 pwdId = session.shareId,

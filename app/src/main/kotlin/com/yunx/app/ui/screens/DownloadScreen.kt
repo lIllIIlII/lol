@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.Manifest
@@ -111,9 +93,6 @@ import com.yunx.app.ui.SnackbarController
 import com.yunx.app.ui.viewmodel.DownloadViewModel
 import java.io.File
 
-/**
- * 下载页：任务列表（分片多线程下载 / 断点续传）、进度展示、暂停/继续/删除/打开。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadScreen(
@@ -128,7 +107,6 @@ fun DownloadScreen(
     var pendingDelete by remember { mutableStateOf<DownloadTaskEntity?>(null) }
     var showDeleteAllConfirm by remember { mutableStateOf(false) }
 
-    // Android 9- 写公共目录需要 WRITE_EXTERNAL_STORAGE
     val needLegacyPermission = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -148,7 +126,6 @@ fun DownloadScreen(
             EmptyDownloadState(modifier = Modifier.align(Alignment.Center))
         } else {
             Column(modifier = Modifier.fillMaxSize()) {
-                // 批量操作栏：全部暂停 / 全部开始 / 删除全部
                 DownloadBatchBar(
                     hasActive = tasks.any {
                         it.status == DownloadTaskEntity.STATUS_DOWNLOADING ||
@@ -170,9 +147,7 @@ fun DownloadScreen(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 96.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    // 根目录任务（无相对路径）单独显示
                     val rootTasks = tasks.filter { !it.fileName.contains('/') }
-                    // 文件夹下载任务：按「顶级目录」分组（整个文件夹归为一组，内部子文件夹不拆开）
                     val folderGroups = tasks.filter { it.fileName.contains('/') }
                         .groupBy { it.fileName.substringBefore('/') }
 
@@ -216,7 +191,6 @@ fun DownloadScreen(
         )
     }
 
-    // 删除二次确认（可选同时删除本地文件）
     pendingDelete?.let { task ->
         DeleteConfirmDialog(
             task = task,
@@ -228,7 +202,6 @@ fun DownloadScreen(
         )
     }
 
-    // 删除全部任务二次确认（可选同时删除本地文件）
     if (showDeleteAllConfirm) {
         var deleteAllLocal by remember { mutableStateOf(false) }
         val hasCompletedFile = tasks.any {
@@ -238,7 +211,6 @@ fun DownloadScreen(
             onDismissRequest = { showDeleteAllConfirm = false },
             title = { Text("删除全部任务") },
             text = {
-                // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -291,7 +263,6 @@ fun DownloadScreen(
     }
 }
 
-/** 批量操作栏：全部暂停 / 全部开始 / 删除全部（Material3 紧凑按钮，无可用操作时禁用） */
 @Composable
 private fun DownloadBatchBar(
     hasActive: Boolean,
@@ -351,7 +322,6 @@ private fun DeleteConfirmDialog(
         onDismissRequest = onDismiss,
         title = { Text("删除下载任务") },
         text = {
-            // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -442,10 +412,6 @@ private fun EmptyDownloadState(modifier: Modifier = Modifier) {
     }
 }
 
-/**
- * 文件夹下载组：同一「顶级目录」下的所有任务合并为一个可展开卡片。
- * 收起时显示文件夹名 + 统计 + 总体进度；展开后显示子任务（含子文件夹内文件）紧凑列表。
- */
 @Composable
 private fun FolderDownloadGroup(
     folder: String,
@@ -459,7 +425,6 @@ private fun FolderDownloadGroup(
     var expanded by remember { mutableStateOf(true) }
     val completed = tasks.count { it.status == DownloadTaskEntity.STATUS_COMPLETED }
     val totalSize = tasks.sumOf { it.totalSize }
-    // 聚合显示钳制：任何单项竞态残留都不会让"已下载 > 总大小"
     val downloaded = minOf(tasks.sumOf { it.downloadedSize }, totalSize)
     val fraction = if (totalSize > 0) {
         (downloaded.toFloat() / totalSize).coerceIn(0f, 1f)
@@ -474,7 +439,6 @@ private fun FolderDownloadGroup(
         )
     ) {
         Column {
-            // 头部：点击展开/收起
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -482,7 +446,6 @@ private fun FolderDownloadGroup(
                     .padding(start = 14.dp, end = 10.dp, top = 12.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 文件夹图标（圆角方块，主色容器）
                 Surface(
                     modifier = Modifier.size(44.dp),
                     shape = RoundedCornerShape(14.dp),
@@ -513,7 +476,6 @@ private fun FolderDownloadGroup(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // 总体进度徽标
                 Surface(
                     shape = RoundedCornerShape(50),
                     color = if (done) {
@@ -542,14 +504,12 @@ private fun FolderDownloadGroup(
                 )
             }
 
-            // 展开区：总体进度条 + 子任务紧凑列表
             AnimatedVisibility(
                 visible = expanded,
                 enter = fadeIn(tween(200)) + expandVertically(tween(200), expandFrom = Alignment.Top),
                 exit = fadeOut(tween(150)) + shrinkVertically(tween(150), shrinkTowards = Alignment.Top)
             ) {
                 Column {
-                    // 总体进度条（已完成时隐藏）
                     if (!done) {
                         LinearProgressIndicator(
                             progress = { fraction },
@@ -562,7 +522,6 @@ private fun FolderDownloadGroup(
                             trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
                         )
                     }
-                    // 子任务列表（紧凑行，含子文件夹内文件）
                     Column(
                         modifier = Modifier.padding(10.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -584,10 +543,6 @@ private fun FolderDownloadGroup(
     }
 }
 
-/**
- * 文件夹组内子任务紧凑行：相对路径 + 状态 + 进度条 + 操作按钮。
- * 相比独立任务卡更轻量，适合嵌套在文件夹组内。
- */
 @Composable
 private fun DownloadSubTaskRow(
     task: DownloadTaskEntity,
@@ -603,9 +558,7 @@ private fun DownloadSubTaskRow(
     val fraction = if (task.totalSize > 0) {
         (task.downloadedSize.toFloat() / task.totalSize).coerceIn(0f, 1f)
     } else 0f
-    // 显示相对路径（去掉顶级目录前缀，如 "A/B/b.mp4" → "B/b.mp4"）
     val displayName = task.fileName.substringAfter('/')
-    // 长按任务行弹出操作菜单（复制直链 / 重新下载 / 删除）
     var showMenu by remember { mutableStateOf(false) }
 
     Surface(
@@ -621,7 +574,6 @@ private fun DownloadSubTaskRow(
     ) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // 文件小图标
                 Surface(
                     modifier = Modifier.size(32.dp),
                     shape = RoundedCornerShape(9.dp),
@@ -661,7 +613,6 @@ private fun DownloadSubTaskRow(
                         }
                     )
                 }
-                // 主操作（暂停/继续/重试/打开）
                 when (task.status) {
                     DownloadTaskEntity.STATUS_DOWNLOADING,
                     DownloadTaskEntity.STATUS_PENDING -> IconButton(onClick = onPause, modifier = Modifier.size(32.dp)) {
@@ -692,7 +643,6 @@ private fun DownloadSubTaskRow(
                         )
                     }
                 }
-                // 删除
                 IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
                     Icon(
                         Icons.Outlined.Delete, contentDescription = "删除",
@@ -700,7 +650,6 @@ private fun DownloadSubTaskRow(
                     )
                 }
             }
-            // 细进度条（完成态折叠，带过渡动画）
             AnimatedVisibility(
                 visible = task.status != DownloadTaskEntity.STATUS_COMPLETED,
                 enter = expandVertically(tween(200)) + fadeIn(tween(200)),
@@ -723,7 +672,6 @@ private fun DownloadSubTaskRow(
             }
         }
 
-        // 长按任务行弹出操作菜单（复制直链 / 重新下载 / 删除）
         if (showMenu) {
             AlertDialog(
                 onDismissRequest = { showMenu = false },
@@ -787,7 +735,6 @@ private fun DownloadTaskCard(
     val fraction = if (task.totalSize > 0) {
         (task.downloadedSize.toFloat() / task.totalSize).coerceIn(0f, 1f)
     } else 0f
-    // 长按任务卡弹出操作菜单（复制直链 / 重新下载 / 删除）
     var showMenu by remember { mutableStateOf(false) }
 
     Card(
@@ -835,7 +782,6 @@ private fun DownloadTaskCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // 主操作按钮
                 when (task.status) {
                     DownloadTaskEntity.STATUS_DOWNLOADING,
                     DownloadTaskEntity.STATUS_PENDING -> IconButton(onClick = onPause) {
@@ -848,7 +794,6 @@ private fun DownloadTaskCard(
                         Icon(Icons.Outlined.Refresh, contentDescription = "重试", tint = MaterialTheme.colorScheme.error)
                     }
                                         DownloadTaskEntity.STATUS_COMPLETED -> Row {
-                        // APK 文件：额外显示「安装」按钮
                         if (task.fileName.endsWith(".apk", true)) {
                             IconButton(onClick = { installApk(context, task.savePath, task.fileName) }) {
                                 Icon(
@@ -869,7 +814,6 @@ private fun DownloadTaskCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 失败原因（红色小字展示具体错误）
             if (task.status == DownloadTaskEntity.STATUS_FAILED && task.errorMsg.isNotBlank()) {
                 Text(
                     text = "失败原因：${task.errorMsg}",
@@ -881,7 +825,6 @@ private fun DownloadTaskCard(
                 Spacer(modifier = Modifier.height(6.dp))
             }
 
-            // 实时统计 + 进度条：完成态整体折叠（带高度过渡动画，不残留空白）
             AnimatedVisibility(
                 visible = task.status != DownloadTaskEntity.STATUS_COMPLETED,
                 enter = expandVertically(tween(200)) + fadeIn(tween(200)),
@@ -940,7 +883,6 @@ private fun DownloadTaskCard(
             }
         }
 
-        // 长按任务卡弹出操作菜单（复制直链 / 重新下载 / 删除）
         if (showMenu) {
             AlertDialog(
                 onDismissRequest = { showMenu = false },
@@ -997,7 +939,6 @@ private fun copyToClipboard(context: Context, text: String) {
 private fun taskStatusLine(task: DownloadTaskEntity): String {
     val status = DownloadTaskEntity.statusText(task.status)
     return if (task.totalSize > 0) {
-        // 显示值钳制到 total（防恢复竞态残留导致显示超总大小）
         val shown = minOf(task.downloadedSize, task.totalSize)
         "$status · ${formatSize(shown)} / ${formatSize(task.totalSize)}"
     } else {
@@ -1007,7 +948,6 @@ private fun taskStatusLine(task: DownloadTaskEntity): String {
 
 private fun progressText(task: DownloadTaskEntity): String {
     if (task.totalSize <= 0) return ""
-    // 显示值钳制到 total（防恢复竞态残留导致显示超总大小）
     val shown = minOf(task.downloadedSize, task.totalSize)
     val percent = (shown * 100 / task.totalSize).toInt().coerceIn(0, 100)
     return "已下载 ${formatSize(shown)} / ${formatSize(task.totalSize)} · $percent%"
@@ -1052,7 +992,6 @@ private fun openSavedFile(context: android.content.Context, savePath: String) {
     val uri = if (savePath.startsWith("content://")) {
         Uri.parse(savePath)
     } else {
-        // Android 7.0+ 禁止暴露 file:// URI，必须经 FileProvider 转 content://
         FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(savePath))
     }
     val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -1066,13 +1005,11 @@ private fun openSavedFile(context: android.content.Context, savePath: String) {
     }
 }
 
-/** 安装 APK：检查「安装未知来源应用」权限（Android 8+），ACTION_VIEW 调起系统安装器 */
 private fun installApk(context: android.content.Context, savePath: String, fileName: String) {
     if (savePath.isBlank()) {
         SnackbarController.show("文件不存在")
         return
     }
-    // Android 8+：需先授予「安装未知来源应用」
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
         !context.packageManager.canRequestPackageInstalls()
     ) {
@@ -1089,7 +1026,6 @@ private fun installApk(context: android.content.Context, savePath: String, fileN
     val uri = if (savePath.startsWith("content://")) {
         Uri.parse(savePath)
     } else {
-        // Android 7.0+ 禁止暴露 file:// URI，必须经 FileProvider 转 content://
         FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", File(savePath))
     }
     val intent = Intent(Intent.ACTION_VIEW).apply {
@@ -1115,7 +1051,6 @@ private fun AddDownloadDialog(
         onDismissRequest = onDismiss,
         title = { Text("添加下载任务") },
         text = {
-            // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

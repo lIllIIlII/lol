@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ClipData
@@ -50,9 +32,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 已登录 UC 账号的底部弹窗。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UCAccountSheet(
@@ -70,7 +49,6 @@ fun UCAccountSheet(
     val loginTime = remember(account.updatedAt) {
         SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(account.updatedAt))
     }
-    // ModalBottomSheet 为独立窗口，需自带 Snackbar 宿主
     val snackbarHostState = rememberGlobalSnackbarHostState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scrollState = rememberScrollState()
@@ -139,7 +117,6 @@ fun UCAccountSheet(
                 Spacer(modifier = Modifier.width(8.dp)); Text("退出登录")
             }
 
-            // 复制提示（ModalBottomSheet 为独立窗口，需自带 Snackbar 宿主）
             SnackbarHost(hostState = snackbarHostState)
         }
     }

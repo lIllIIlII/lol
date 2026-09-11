@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.crash
 
 import android.app.Activity
@@ -68,10 +50,6 @@ import com.yunx.app.ui.items.CustomFabMenu
 import com.yunx.app.ui.items.FabMenuItem
 import com.yunx.app.ui.theme.ComposeEmptyActivityTheme
 
-/**
- * 崩溃界面（运行在独立进程 :crash）：
- * 展示崩溃报告，并通过 CustomFabMenu 提供「复制崩溃信息 / 重启应用 / 退出应用」。
- */
 class CrashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -120,7 +98,6 @@ private fun CrashScreen(crashLog: String) {
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp)
         ) {
-            // 错误图标
             Surface(
                 modifier = Modifier.size(64.dp),
                 shape = CircleShape,
@@ -147,7 +124,6 @@ private fun CrashScreen(crashLog: String) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(16.dp))
-            // 崩溃报告（可滚动）
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -165,7 +141,7 @@ private fun CrashScreen(crashLog: String) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Spacer(modifier = Modifier.height(88.dp)) // 给 FAB 留出空间
+            Spacer(modifier = Modifier.height(88.dp))
         }
 
         CustomFabMenu(
@@ -174,7 +150,6 @@ private fun CrashScreen(crashLog: String) {
             items = menuItems
         )
 
-        // 全局 Snackbar（崩溃页为独立 Activity，需自带宿主）
         GlobalSnackbarHost()
     }
 }

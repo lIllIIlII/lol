@@ -1,21 +1,3 @@
-/*
- * 吸析At - 城通网盘（ctfile.com）文件分享解析 API。
- *
- * 协议（由 webapi.ctfile.com 官网前端 other.js + qinlili/ctfileGet 交叉还原，沙箱实测验证）：
- * 1) GET /getfile.php?path=<f|file>&f=<fileid>&passcode=<pwd>&token=&r=<rand>&ref=<page>&url=<page>
- *    → {code:200, file:{file_name,file_size,is_vip,userid,file_id,file_chk,
- *        wait_seconds,start_time,verifycode, vip_dx_url?,vip_yd_url?,vip_lt_url?,us_downurl_a?}}
- *    - code 423：需要访问密码（file.message 区分「请输入密码」与「密码不正确」）
- *    - code 404：分享不存在/已过期
- * 2) VIP 文件（is_vip==1）：vip_dx_url / vip_yd_url / vip_lt_url / us_downurl_a 直接为直链
- * 3) 普通文件：GET /get_file_url.php?uid=<userid>&fid=<file_id>&file_chk=<chk>
- *    &start_time=<st>&wait_seconds=<ws>&app=0&acheck=2&verifycode=<vc>&rd=<rand>
- *    → {code:200, downurl} 或 {code:302, url}
- *
- * 文件 id 形态：/f/<uid-fid-chk>（3 段，path=f）与 /file/<uid-fid>（2 段，path=file）。
- * 文件夹分享（/dir/<id>）暂不支持（需 DataTables 服务端分页渲染，浏览器打开更稳妥）。
- */
-
 package com.yunx.app.data.network
 
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +7,6 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
-/** 城通文件信息（单文件分享） */
 data class CtfileFileInfo(
     val fileName: String,
     val fileSize: Long,
@@ -36,7 +17,6 @@ data class CtfileFileInfo(
     val startTime: Long,
     val waitSeconds: Long,
     val verifycode: String,
-    /** VIP 文件直链候选（电信/移动/联通/海外，按序取用） */
     val vipUrls: Map<String, String> = emptyMap()
 )
 
@@ -89,11 +69,6 @@ object CtfileApi {
         }
     }
 
-    /**
-     * 获取文件信息（含 VIP 直链候选）。
-     * @param fileid 形如 235978-1320342970-0dad31（3 段）或 23944505-588439140（2 段）
-     * @param refHost 分享页域名（如 url78.ctfile.com，作 Referer/Origin）
-     */
     suspend fun fetchFileInfo(fileid: String, pwd: String?, refHost: String): CtfileFileInfo {
         val pathKind = if (fileid.count { it == '-' } >= 2) "f" else "file"
         val ref = "https://$refHost"
@@ -104,7 +79,7 @@ object CtfileApi {
             ?: throw IllegalStateException("城通接口响应异常，请重试")
         val f = json.optJSONObject("file") ?: JSONObject()
         when (json.optInt("code", -1)) {
-            200 -> { /* 正常 */ }
+            200 -> {   }
             423 -> {
                 val msg = f.optString("message")
                 throw if (pwd.isNullOrBlank()) NeedsPwdException(msg.ifBlank { "该分享需要访问密码" })
@@ -135,7 +110,6 @@ object CtfileApi {
         )
     }
 
-    /** 获取下载直链：VIP 文件直接取节点直链；普通文件走 get_file_url.php */
     suspend fun fetchDirectLink(info: CtfileFileInfo): String {
         if (info.isVip) {
             val url = info.vipUrls.values.firstOrNull { it.isNotBlank() }
@@ -159,7 +133,6 @@ object CtfileApi {
         throw IllegalStateException(json.optString("message").ifBlank { "获取下载地址失败（HTTP code=$code）" })
     }
 
-    /** "62.88 MB" / "1.2 GB" 文本 → 字节 */
     fun parseSizeText(text: String): Long {
         val m = Regex("""([0-9.]+)\s*(B|KB|MB|GB|TB)""", RegexOption.IGNORE_CASE).find(text) ?: return 0L
         val num = m.groupValues[1].toDoubleOrNull() ?: return 0L

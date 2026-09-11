@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import androidx.compose.foundation.Image
@@ -83,10 +65,6 @@ import android.content.Intent
 import android.net.Uri
 import com.yunx.app.R
 
-/**
- * 关于云析页：应用介绍、支持平台、功能特性、技术栈与免责声明。
- * Material3 风格：卡片分区 + 主题色 + 动态色适配。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
@@ -95,7 +73,6 @@ fun AboutScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // 系统返回键 → 返回主页（而不是退出应用）
     BackHandler { onBack() }
     val pkgInfo = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0) }.getOrNull()
@@ -127,10 +104,8 @@ fun AboutScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ---------- App 头部：16:9 横版主视觉图 ----------
             AppBanner(versionName = versionName, versionCode = versionCode)
 
-            // ---------- 简介 ----------
             InfoCard(
                 icon = Icons.Outlined.Cloud,
                 title = "应用简介",
@@ -138,19 +113,14 @@ fun AboutScreen(
                     "粘贴分享链接，登录网盘账号后即可浏览分享内容并直接高速下载文件。"
             )
 
-            // ---------- 支持平台 ----------
             PlatformCard()
 
-            // ---------- 功能特性 ----------
             FeatureCard()
 
-            // ---------- 技术栈 ----------
             TechCard()
 
-            // ---------- 免责声明 ----------
             DisclaimerCard()
 
-            // ---------- 开源协议 ----------
             Text(
                 text = "开源协议 AGPL-3.0 · 源码与更新托管于 GitHub · 完全免费，禁止倒卖",
                 style = MaterialTheme.typography.labelSmall,
@@ -159,10 +129,8 @@ fun AboutScreen(
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center
             )
 
-            // ---------- 重新预览欢迎界面 ----------
             PreviewOnboardingCard(onClick = onPreviewOnboarding)
 
-            // ---------- 开源仓库 ----------
             GitHubCard(context)
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -179,7 +147,6 @@ fun AboutScreen(
     }
 }
 
-/** App 头部：16:9 横版主视觉图 + 底部渐变上的应用名与版本（无方形图标） */
 @Composable
 private fun AppBanner(versionName: String, versionCode: Int) {
     Column(
@@ -191,7 +158,7 @@ private fun AppBanner(versionName: String, versionCode: Int) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1.7778f)   // 16:9 横版主视觉
+                .aspectRatio(1.7778f)
                 .clip(RoundedCornerShape(22.dp))
         ) {
             Image(
@@ -200,7 +167,6 @@ private fun AppBanner(versionName: String, versionCode: Int) {
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
-            // 底部渐变遮罩 + 应用名（叠在图上）
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -235,7 +201,6 @@ private fun AppBanner(versionName: String, versionCode: Int) {
     }
 }
 
-/** 通用信息卡片：图标 + 标题 + 描述 */
 @Composable
 private fun InfoCard(icon: ImageVector, title: String, description: String) {
     SectionCard {
@@ -260,7 +225,6 @@ private fun InfoCard(icon: ImageVector, title: String, description: String) {
     }
 }
 
-/** 支持平台卡片 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PlatformCard() {
@@ -321,7 +285,6 @@ private fun PlatformCard() {
     }
 }
 
-/** 功能特性卡片 */
 @Composable
 private fun FeatureCard() {
     val features = listOf(
@@ -367,7 +330,6 @@ private fun FeatureCard() {
     }
 }
 
-/** 技术栈卡片 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TechCard() {
@@ -404,7 +366,6 @@ private fun TechCard() {
     }
 }
 
-/** 免责声明卡片 */
 @Composable
 private fun DisclaimerCard() {
     SectionCard {
@@ -431,7 +392,6 @@ private fun DisclaimerCard() {
     }
 }
 
-/** 重新预览欢迎界面入口 */
 @Composable
 private fun PreviewOnboardingCard(onClick: () -> Unit) {
     Card(
@@ -484,7 +444,6 @@ private fun PreviewOnboardingCard(onClick: () -> Unit) {
     }
 }
 
-/** 卡片容器统一风格 */
 @Composable
 private fun SectionCard(content: @Composable () -> Unit) {
     Card(
@@ -498,7 +457,6 @@ private fun SectionCard(content: @Composable () -> Unit) {
     }
 }
 
-/** 卡片图标圆形底 */
 @Composable
 private fun CardIcon(icon: ImageVector) {
     Surface(
@@ -517,7 +475,6 @@ private fun CardIcon(icon: ImageVector) {
     }
 }
 
-/** 开源仓库入口卡片（本项目开源地址） */
 @Composable
 private fun GitHubCard(context: android.content.Context) {
     Card(

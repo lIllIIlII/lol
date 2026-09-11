@@ -1,9 +1,3 @@
-/*
- * 吸析At - 蓝奏云分享解析仓库。
- * 会话状态打包进 stoken（JSON：baseUrl / pwd / cookie），列表与直链均按需解析。
- * 支持文件与文件夹分享、提取码、acw 反爬自动解算。
- */
-
 package com.yunx.app.data.repository
 
 import com.yunx.app.data.network.LanzouApi
@@ -36,7 +30,6 @@ class LanzouResolveRepository(
             val page = LanzouApi.fetchPage(baseUrl, parsed.shareId, sharePwd, accountCookie)
             ShareSession(
                 shareId = parsed.shareId,
-                // 用容灾后实际可用的域名（原域名被拦截时已自动切换）
                 stoken = packStoken(page.baseUrl, sharePwd, accountCookie),
                 title = page.title.ifBlank { "蓝奏云分享" }
             )

@@ -1,28 +1,3 @@
-/*
- * 吸析At - 「小飞机网盘 / 蓝奏云优享版(ilanzou)」通用 API 引擎。
- *
- * 两站为同源产品（dinghao 系，前端代码几乎一致），协议完全同构，
- * 仅 域名 / AES 密钥 / 接口路径前缀 不同：
- * - feijipan: api.feijipan.com + 前缀 ws/      + 密钥 dingHao-disk-app
- * - ilanzou : apix.ilanzou.com + 前缀 unproved/ + 密钥 lanZouY-disk-app
- *
- * 协议（由 www.feijix.com / www.ilanzou.com 分享页前端 JS 抓包还原）：
- * 1) POST {recommend/list} {shareId, code?, userId?, type=0, offset, limit}
- *    → {code:200, msg, total, status, list:[{shareId,userId,fileIds,
- *        fileList:[{fileName|folderName, fileId|folderId, fileType, fileSize, iconId}],
- *        map:{userId,userName,avatar,...}}]}
- *    - status: -1 分享失效/维护；2 提取码相关；0 且 list 空 → 无文件；1 正常
- *    - 「需要提取码」的响应特征：fileList[0] 为空对象（无 fileName/folderName/fileId）
- *    - 文件夹条目字段是 folderName/folderId（旧版只读 fileName → 全部变成
- *      「未知文件夹」的根源），文件条目是 fileName/fileId（下载用自身 fileId，
- *      而非共享级 fileIds）
- * 2) 文件夹内容 POST {share/file/list | share/list} {shareId, folderId(null=根),
- *    offset, limit} → {code:200, list:[条目...], total}（条目结构同上）
- * 3) 直链 GET {file/redirect}?downloadId=hex(fileId|userPart)&enable=1&devType=6
- *    &uuid&timestamp=hex(now)&auth=hex(fileId|now)&shareId= → 302 Location
- *    - feijipan 的 userPart = 分享者 userId；ilanzou 匿名下载 = 空串
- */
-
 package com.yunx.app.data.network
 
 import kotlinx.coroutines.Dispatchers
@@ -36,9 +11,7 @@ import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
-/** 引擎配置（两站差异全部收敛在这里） */
 data class WsDiskConfig(
-    /** 主域名 + 备用域名（同协议不同入口，任一可用即可；防单一域名被污染/屏蔽） */
     val hosts: List<String>,
     val recommendPath: String,
     val folderListPath: String,
@@ -48,14 +21,11 @@ data class WsDiskConfig(
     val label: String
 )
 
-/** 统一条目：文件用 fileId，文件夹用 folderId；entryUserId 为条目自带的目标用户段 */
 data class WsDiskEntry(
     val id: String,
     val name: String,
-    /** 字节（接口返回 KB，此处已乘 1024） */
     val size: Long,
     val isDir: Boolean,
-    /** 条目自带 userId（downloadId 用户段，优先于分享者 userId） */
     val entryUserId: String = ""
 )
 
@@ -69,7 +39,6 @@ data class WsDiskShareInfo(
 
 class WsDiskApi(val config: WsDiskConfig) {
 
-    /** 平台名（错误提示用） */
     val configLabel: String get() = config.label
 
     companion object {
@@ -79,8 +48,6 @@ class WsDiskApi(val config: WsDiskConfig) {
         class WrongPwdException(message: String = "提取码不正确") : Exception(message)
         class NeedsPwdException(message: String = "该分享需要提取码") : Exception(message)
 
-        /** 小飞机网盘引擎（downloadId 用户段：条目/分享者 userId）
-         *  文件夹列表用 ws/share/list（nfd 生产验证的通用旧接口，无需服务端解析目标用户） */
         val FEIJI = WsDiskApi(
             WsDiskConfig(
                 hosts = listOf("api.feijipan.com"),
@@ -93,8 +60,6 @@ class WsDiskApi(val config: WsDiskConfig) {
             )
         )
 
-        /** 蓝奏云优享版引擎（downloadId 用户段：条目 userId → 分享者 → 空串）
-         *  双入口：apix（官网前端现行）+ api（AList / nfd 长期使用），互为容灾 */
         val ILANZOU = WsDiskApi(
             WsDiskConfig(
                 hosts = listOf("apix.ilanzou.com", "api.ilanzou.com"),
@@ -120,7 +85,6 @@ class WsDiskApi(val config: WsDiskConfig) {
         return cipher.doFinal(plain.toByteArray(Charsets.UTF_8)).joinToString("") { "%02x".format(it) }
     }
 
-    /** 独立客户端：SmartDns 防 DNS 污染 + 不跟随重定向（直链 302 探测） */
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .dns(SmartDns)
@@ -131,7 +95,6 @@ class WsDiskApi(val config: WsDiskConfig) {
             .build()
     }
 
-    /** 当前可用域名（网络层失败时自动切换到下一个入口，成功后粘住） */
     @Volatile
     private var activeHostIdx = 0
 
@@ -152,7 +115,6 @@ class WsDiskApi(val config: WsDiskConfig) {
             .set("Referer", "${config.origin}/")
     }
 
-    /** POST：依次尝试各入口域名（网络层失败/非 2xx 切下一个；仅单入口时直接抛错） */
     private fun postWithFailover(path: String, params: Map<String, String>): String {
         var lastError: Exception = IllegalStateException("网络请求失败")
         for (attempt in config.hosts.indices) {
@@ -176,14 +138,6 @@ class WsDiskApi(val config: WsDiskConfig) {
         throw lastError
     }
 
-    // ---------- 条目解析（根治「未知文件夹」：文件夹字段是 folderName/name + folderId） ----------
-
-    /**
-     * 条目字段兼容（recommend/list 与 share/list 两类响应字段名有差异，
-     * 官网前端与 nfd/AList 实现综合）：
-     * - 文件夹：folderName 或 name / folderId / fileType==2
-     * - 文件：fileName 或 name / fileId / fileSize（单位 KB）
-     */
     private fun parseEntry(
         f: JSONObject,
         shareFileIds: String,
@@ -195,25 +149,21 @@ class WsDiskApi(val config: WsDiskConfig) {
             isDir -> f.optString("folderName").ifBlank { f.optString("name") }
             else -> f.optString("fileName").ifBlank { f.optString("name") }
         }
-        // 「需要提取码」响应：条目为空对象（无名称无 ID）
         if (name.isBlank() && id.isBlank()) {
             if (allowPwdProbe) return null else throw NeedsPwdException()
         }
-        if (isDir && id.isBlank()) return null // 文件夹无 folderId，不可进入，不入列
-        val finalId = id.ifBlank { shareFileIds } // 单文件分享自身无 fileId 时回退共享级 fileIds
-        if (finalId.isBlank()) return null // 无任何可用 ID（文件夹内容兜底为空串时跳过）
+        if (isDir && id.isBlank()) return null
+        val finalId = id.ifBlank { shareFileIds }
+        if (finalId.isBlank()) return null
         return WsDiskEntry(
             id = finalId,
             name = name.ifBlank { "未知名称" },
-            size = f.optLong("fileSize", 0L) * 1024L, // 接口返回 KB（nfd/AList 同款换算）
+            size = f.optLong("fileSize", 0L) * 1024L,
             isDir = isDir,
             entryUserId = f.optString("userId")
         )
     }
 
-    // ---------- 分享根解析 ----------
-
-    /** 拉取分享根信息（recommend/list） */
     suspend fun fetchShare(shareId: String, code: String?): WsDiskShareInfo = withContext(Dispatchers.IO) {
         val params = linkedMapOf(
             "devType" to "6",
@@ -234,17 +184,15 @@ class WsDiskApi(val config: WsDiskConfig) {
             ?: throw IllegalStateException("分享信息响应异常")
 
         when (json.optInt("code", -1)) {
-            200 -> { /* 正常继续（status 语义在下方分流） */ }
+            200 -> {   }
             else -> {
                 val msg = json.optString("msg")
                 if (msg.contains("密码") || msg.contains("提取") || msg.contains("code")) {
-                    // 未提供提取码 → 提示需要提取码；已提供仍报错 → 提取码不正确
                     throw if (code.isNullOrBlank()) NeedsPwdException(msg) else WrongPwdException(msg)
                 }
                 throw IllegalStateException(msg.ifBlank { "分享链接无效或已失效" })
             }
         }
-        // status 分流（前端同款语义）：-1 失效；2 提取码相关
         when (json.opt("status").toString()) {
             "-1" -> throw IllegalStateException("分享已取消或已失效")
             "2" -> {
@@ -253,7 +201,6 @@ class WsDiskApi(val config: WsDiskConfig) {
         }
 
         val list: JSONArray = json.optJSONArray("list") ?: JSONArray()
-        // 空列表语义（官网前端/社区工具同款）：多半是未带提取码 / 提取码错，也可能分享失效
         if (list.length() == 0) {
             throw if (code.isNullOrBlank())
                 NeedsPwdException("分享无内容：可能需要提取码（在链接旁输入后重试）或已失效")
@@ -266,7 +213,6 @@ class WsDiskApi(val config: WsDiskConfig) {
         if (userId.isBlank()) userId = info.optString("shareId").ifBlank { shareId }
 
         val fileList = info.optJSONArray("fileList") ?: JSONArray()
-        // 「需要提取码」检测：唯一条目是空对象
         if (fileList.length() == 1) {
             val only = fileList.optJSONObject(0) ?: JSONObject()
             val noName = only.optString("fileName").isBlank() && only.optString("folderName").isBlank()
@@ -293,12 +239,6 @@ class WsDiskApi(val config: WsDiskConfig) {
         )
     }
 
-    // ---------- 文件夹内容 ----------
-
-    /**
-     * 分页拉取文件夹内容（folderId 为空 = 根目录）。
-     * @return 条目列表（已按 total 自动翻页，防大文件夹截断）
-     */
     suspend fun fetchFolderFiles(
         shareId: String,
         folderId: String?,
@@ -334,7 +274,6 @@ class WsDiskApi(val config: WsDiskConfig) {
             for (i in 0 until pageList.length()) {
                 val f = pageList.optJSONObject(i) ?: continue
                 val e = parseEntry(f, "", allowPwdProbe = true) ?: continue
-                // 去重：服务端翻页异常时不无限叠加（旧版未知文件夹问题的镜像防护）
                 if (!seen.add("${if (e.isDir) 'd' else 'f'}:${e.id}")) continue
                 out.add(e)
                 added++
@@ -345,12 +284,6 @@ class WsDiskApi(val config: WsDiskConfig) {
         out
     }
 
-    // ---------- 直链 ----------
-
-    /**
-     * 获取单文件直链（302 Location）。多入口依次尝试（网络层失败切换）。
-     * @param userPart downloadId 的用户段：小飞机=分享者 userId；优享版匿名=空串
-     */
     suspend fun fetchDirectLink(shareId: String, fileId: String, userPart: String): String =
         withContext(Dispatchers.IO) {
             val uuid = randomUuid()

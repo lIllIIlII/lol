@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ClipData
@@ -77,9 +59,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 已登录 123 账号的底部弹窗：展示用户信息、登录时间、token（可展开/复制），并提供退出登录。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Pan123AccountSheet(
@@ -89,7 +68,6 @@ fun Pan123AccountSheet(
 ) {
     val context = LocalContext.current
     var showFullToken by rememberSaveable { mutableStateOf(false) }
-    // 退出登录二次确认
     var showLogoutConfirm by remember { mutableStateOf(false) }
 
     val tokenPreviewLimit = 200
@@ -143,7 +121,6 @@ fun Pan123AccountSheet(
                 )
                 .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 32.dp)
         ) {
-            // 用户信息
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     modifier = Modifier.size(52.dp),
@@ -185,7 +162,6 @@ fun Pan123AccountSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 登录信息
             Text(
                 text = "登录信息",
                 style = MaterialTheme.typography.labelMedium,
@@ -249,7 +225,6 @@ fun Pan123AccountSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // 退出登录
             Button(
                 onClick = { showLogoutConfirm = true },
                 modifier = Modifier
@@ -269,12 +244,10 @@ fun Pan123AccountSheet(
                 Text("退出登录")
             }
 
-            // 复制提示（ModalBottomSheet 为独立窗口，需自带 Snackbar 宿主）
             SnackbarHost(hostState = snackbarHostState)
         }
     }
 
-    // 退出登录二次确认
     if (showLogoutConfirm) {
         AlertDialog(
             onDismissRequest = { showLogoutConfirm = false },

@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.login
 
 import android.graphics.Bitmap
@@ -71,10 +53,6 @@ import com.yunx.app.data.network.UCConstants
 import com.yunx.app.ui.viewmodel.UCAccountViewModel
 import kotlinx.coroutines.launch
 
-/**
- * UC 网盘登录页：WebView 登录 + 自动登录检测（登录完成自动提取 Cookie 并登录，右上角「保存」保留作手动兜底）
- * + 手动输入 Cookie + 教程弹窗。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UCLoginScreen(
@@ -110,7 +88,6 @@ fun UCLoginScreen(
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
                     isLoading = false
-                    // 强制覆盖页面 viewport：允许缩放 + 适配屏幕宽度（桌面版页面无 viewport 或限制了缩放时生效）
                     view?.evaluateJavascript(
                         "(function(){var m=document.querySelector('meta[name=\"viewport\"]');" +
                             "var c='width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes';" +
@@ -125,7 +102,6 @@ fun UCLoginScreen(
         }
     }
 
-    // 自动登录检测：网页内登录完成（Cookie 出现并通过接口校验）即自动保存登录；右上角「保存」保留作手动兜底
     rememberWebLoginAutoDetect(
         sampleCredential = { CookieManager.getInstance().getCookie(UCConstants.COOKIE_DOMAIN).orEmpty() },
         isPlausible = { UCConstants.isValidCookie(it) },
@@ -138,7 +114,6 @@ fun UCLoginScreen(
     DisposableEffect(Unit) { onDispose { webView.destroy() } }
     BackHandler(enabled = !isSaving && !isSavingManual) { onBack() }
 
-    // 全局 Snackbar 宿主
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
     Scaffold(

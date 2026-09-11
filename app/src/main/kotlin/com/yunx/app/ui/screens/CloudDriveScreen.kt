@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import com.yunx.app.ui.SnackbarController
@@ -94,23 +76,17 @@ import com.yunx.app.ui.resolve.ShareFileRow
 import com.yunx.app.ui.viewmodel.QuarkCloudUiState
 import com.yunx.app.ui.viewmodel.QuarkCloudViewModel
 
-/**
- * 夸克云盘浏览页：展示个人网盘文件，支持进入文件夹 / 返回 / 面包屑回退。
- * 复用解析详情页的 ShareFileRow / CrumbBar / BackToParentItem 组件。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CloudDriveScreen(
     viewModel: QuarkCloudViewModel,
     scrollBehavior: TopAppBarScrollBehavior,
     onExit: () -> Unit,
-    /** 下载入队后通知上层切换到「下载」Tab（对齐解析页行为） */
     onDownloadStarted: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
-    // 系统返回键：多选模式下先退出多选；否则子目录返回上一级，根目录返回账号列表
     BackHandler {
         if (viewModel.multiSelectMode) {
             viewModel.exitMultiSelect()
@@ -119,12 +95,9 @@ fun CloudDriveScreen(
             if (s is QuarkCloudUiState.Loaded && s.pathNames.isNotEmpty()) viewModel.back() else onExit()
         }
     }
-    // 文件列表滚动状态（返回顶部按钮用）
     val listState = rememberLazyListState()
-    // 搜索过滤（本地过滤当前目录文件）
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
-    // 各目录滚动位置记忆：进入文件夹/返回时按目录路径恢复，避免返回后列表回到顶部
     val scrollPositions = remember { mutableStateMapOf<String, Int>() }
     val loadedState = state as? QuarkCloudUiState.Loaded
     val displayFiles = remember(loadedState?.files, searchQuery) {
@@ -135,15 +108,10 @@ fun CloudDriveScreen(
     val currentDirKey = remember(loadedState?.pathNames) {
         loadedState?.pathNames?.joinToString("/") ?: ""
     }
-    // 各目录滚动位置保存/恢复：恢复动作放在 Loaded 分支内（列表挂载后执行），
-    // 避免 Loading 阶段（loadedState==null、key 变 ""）误触发导致返回后回顶
-    // 批量操作弹窗（多选模式底部栏触发：分享/移动需要设置或选目录，下载/删除直接执行）
     var showBatchActions by remember { mutableStateOf(false) }
     var batchInitial by remember { mutableStateOf(com.yunx.app.ui.screens.BatchStep.MENU) }
-    // 批量删除二次确认
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    // 操作结果 Toast（放在本层：弹窗关闭后仍能正常弹出）
     LaunchedEffect(viewModel.cloudMessage) {
         viewModel.cloudMessage?.let {
             SnackbarController.show(it)
@@ -151,7 +119,6 @@ fun CloudDriveScreen(
         }
     }
 
-    // 下载入队后通知上层切换到「下载」Tab（消费事件，避免再次进入本页重复触发）
     LaunchedEffect(viewModel.downloadTriggered) {
         if (viewModel.downloadTriggered > 0) {
             viewModel.consumeDownloadTriggered()
@@ -159,7 +126,6 @@ fun CloudDriveScreen(
         }
     }
 
-    // 单文件下载确认弹窗（对齐解析页：展示直链，长按可复制）
     viewModel.downloadLink?.let { link ->
         DownloadLinkDialog(
             link = link,
@@ -168,12 +134,10 @@ fun CloudDriveScreen(
         )
     }
 
-    // 不透明背景包裹：避免 Tab 内切换时透出下层内容（账号列表）导致视觉重叠
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.surface
     ) {
-        // 目录切换（进入文件夹/返回）：列表淡入淡出过渡
         AnimatedContent(
             targetState = state,
             transitionSpec = {
@@ -210,7 +174,6 @@ fun CloudDriveScreen(
             }
 
             is QuarkCloudUiState.Loaded -> Box(modifier = Modifier.fillMaxSize()) {
-                // 目录加载完成、列表挂载后恢复该目录上次滚动位置（避免 Loading 阶段误触发）
                 val loadedKey = remember(s.pathNames) { s.pathNames.joinToString("/") }
                 LaunchedEffect(loadedKey) {
                     listState.scrollToItem(scrollPositions[loadedKey] ?: 0)
@@ -235,7 +198,6 @@ fun CloudDriveScreen(
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (viewModel.multiSelectMode) {
-                            // 多选模式：取消选择
                             IconButton(onClick = { viewModel.exitMultiSelect() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "取消选择")
                             }
@@ -273,7 +235,6 @@ fun CloudDriveScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            // 放大镜：点击展开/收起搜索框
                             IconButton(onClick = { showSearch = !showSearch }) {
                                 Icon(
                                     imageVector = Icons.Outlined.Search,
@@ -287,7 +248,6 @@ fun CloudDriveScreen(
                             }
                         }
                     }
-                    // 可点击面包屑（多选模式下隐藏）
                     if (!viewModel.multiSelectMode) {
                         CrumbBar(
                             rootTitle = "夸克网盘",
@@ -298,7 +258,6 @@ fun CloudDriveScreen(
                             }
                         )
                     }
-                    // 搜索框（点击放大镜展开；与面包屑保持间距 + 展开/收起动画）
                     AnimatedVisibility(
                         visible = showSearch && !viewModel.multiSelectMode,
                         enter = expandVertically(tween(180)) + fadeIn(tween(180)),
@@ -327,11 +286,9 @@ fun CloudDriveScreen(
                 }
             }
 
-            // 返回上一级（根目录时不显示）
             if (s.pathNames.isNotEmpty()) {
                 item {
                     BackToParentItem(onClick = {
-                        // 记录当前目录滚动位置，返回上级后恢复上级位置
                         scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                         viewModel.back()
                     })
@@ -359,14 +316,12 @@ fun CloudDriveScreen(
                         if (viewModel.multiSelectMode) {
                             viewModel.toggleSelect(file)
                         } else if (file.isdir) {
-                            // 记录当前目录滚动位置，进入子目录后恢复子目录位置
                             scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                             viewModel.openFolder(file)
                         } else {
                             viewModel.openActions(file)
                         }
                     },
-                    // 多选模式：隐藏行尾按钮；非多选时文件夹显示「更多」、全部可长按进入多选
                     onMore = if (!viewModel.multiSelectMode && file.isdir) {
                         { viewModel.openActions(file) }
                     } else {
@@ -382,7 +337,6 @@ fun CloudDriveScreen(
                 )
             }
                 }
-                // 返回顶部按钮（上滑离开顶部后显示；多选模式下上移避开底部批量栏）
                 ScrollToTopButton(
                     listState = listState,
                     modifier = Modifier
@@ -393,7 +347,6 @@ fun CloudDriveScreen(
                         )
                 )
 
-                // 多选模式：底部批量操作栏（底部滑入淡入，退出反向）
                 AnimatedVisibility(
                     visible = viewModel.multiSelectMode,
                     enter = slideInVertically(tween(220)) { it } + fadeIn(tween(220)),
@@ -404,7 +357,6 @@ fun CloudDriveScreen(
                         count = viewModel.selected.size,
                         actions = listOf(
                             MultiSelectAction("下载", Icons.Outlined.Download, MaterialTheme.colorScheme.primary) {
-                                // 批量下载：保持网盘页显示处理中弹窗，不自动切页
                                 viewModel.downloadSelected()
                             },
                             MultiSelectAction("分享", Icons.Outlined.Share, MaterialTheme.colorScheme.primary) {
@@ -427,7 +379,6 @@ fun CloudDriveScreen(
     }
     }
 
-    // 文件操作弹窗（更多按钮/点击文件 → 下载/分享/移动/重命名/删除）
     viewModel.actionFile?.let { file ->
         FileActionSheet(
             file = file,
@@ -436,7 +387,6 @@ fun CloudDriveScreen(
         )
     }
 
-    // 批量操作弹窗（长按多选 → 底部栏分享/移动）
     if (showBatchActions) {
         BatchActionSheet(
             viewModel = viewModel,
@@ -445,7 +395,6 @@ fun CloudDriveScreen(
         )
     }
 
-    // 批量删除二次确认（底部栏点删除直接弹确认）
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
@@ -467,7 +416,6 @@ fun CloudDriveScreen(
         )
     }
 
-    // 操作执行中：加载弹窗（下载取链/分享/移动/删除；下载文件夹显示进度）
     if (viewModel.isOperating) {
         AlertDialog(
             onDismissRequest = { },

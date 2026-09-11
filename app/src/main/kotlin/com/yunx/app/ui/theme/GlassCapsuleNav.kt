@@ -1,9 +1,3 @@
-/*
- * 吸析At - 底部胶囊导航栏（液态玻璃）。
- * 悬浮胶囊造型：玻璃底 + 圆角 32dp（全圆头）+ 选中指示器（Material3 胶囊）+ 弹性切换。
- * 全部玻璃绘制在 clip(shape) 内 → 圆角边缘无任何突出（修复旧版边角溢出）。
- */
-
 package com.yunx.app.ui.theme
 
 import androidx.compose.animation.animateColorAsState
@@ -98,7 +92,6 @@ private fun GlassNavItem(
         },
         animationSpec = tween(180), label = "navLabel"
     )
-    // 选中指示器：尺寸弹性过渡
     val indicatorWidth by animateDpAsState(
         targetValue = if (selected) 46.dp else 34.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow),
@@ -111,7 +104,6 @@ private fun GlassNavItem(
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            // 指示器底（选中时着色，弹性尺寸过渡）
             Box(
                 modifier = Modifier
                     .size(width = indicatorWidth, height = 28.dp)

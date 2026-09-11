@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
@@ -42,20 +24,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
-/**
- * 返回顶部按钮（Material3 规范）：
- * - 列表上滑离开顶部后，右下角淡入+缩放出现；
- * - 点击后平滑滚动回顶部；
- * - 回到顶部（第一个可见项为 0 且无偏移）后自动淡出。
- * 放置位置由调用方通过 modifier 指定（如 Box.align(BottomEnd)）。
- */
 @Composable
 internal fun ScrollToTopButton(
     listState: LazyListState,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
-    // 上滑离开顶部（首项不是 0，或首项有偏移）即显示
     val showButton by remember {
         derivedStateOf {
             listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0
@@ -80,7 +54,7 @@ internal fun ScrollToTopButton(
             Icon(
                 imageVector = Icons.Outlined.KeyboardArrowUp,
                 contentDescription = "返回顶部",
-                modifier = Modifier.padding(bottom = 2.dp) // 视觉微调：箭头视觉居中
+                modifier = Modifier.padding(bottom = 2.dp)
             )
         }
     }

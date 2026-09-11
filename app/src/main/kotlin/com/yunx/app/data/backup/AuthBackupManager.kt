@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.backup
 
 import android.content.ContentValues
@@ -46,10 +28,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 网盘认证信息备份：把已登录的平台（夸克/UC/迅雷/百度/139）凭证打包为 JSON，
- * 可导出到下载目录并在另一台设备导入恢复。
- */
 class AuthBackupManager(
     private val quarkDao: QuarkAccountDao,
     private val ucDao: UCAccountDao,
@@ -64,12 +42,6 @@ class AuthBackupManager(
         const val VERSION = 1
     }
 
-    /**
-     * 导出网盘认证（强制 AES-GCM 加密）：
-     * @param password 至少 8 位的备份口令
-     * @param onlyLoggedIn true=仅导出凭证可用的已登录平台；false=导出数据库里全部绑定记录
-     * @return 明文 JSON 或 Base64 密文
-     */
     suspend fun export(password: String? = null, onlyLoggedIn: Boolean = true): String =
         withContext(Dispatchers.IO) {
             require(!password.isNullOrBlank() && password.length >= 8) { "备份口令至少 8 位" }
@@ -77,7 +49,6 @@ class AuthBackupManager(
             AuthCrypto.encrypt(json, password)
         }
 
-    /** 导出所有已登录平台为 JSON 字符串；无已登录平台时返回空 accounts */
     suspend fun exportJson(onlyLoggedIn: Boolean = true): String = withContext(Dispatchers.IO) {
         val accounts = JSONArray()
         quarkDao.getAccount()?.let { a ->
@@ -147,17 +118,11 @@ class AuthBackupManager(
             .toString(2)
     }
 
-    /**
-     * 导入认证内容（可选 AES 解密）：
-     * @param password 非空时先解密（密码错误抛异常）；null/空按明文 JSON 解析
-     * @return 成功恢复的平台数；文件不合法抛异常
-     */
     suspend fun import(content: String, password: String? = null): Int = withContext(Dispatchers.IO) {
         val json = if (password.isNullOrBlank()) content else AuthCrypto.decrypt(content, password)
         importJson(json)
     }
 
-    /** 导入 JSON，恢复各平台凭证；返回成功恢复的平台数；文件不合法抛异常 */
     suspend fun importJson(json: String): Int = withContext(Dispatchers.IO) {
         val root = JSONObject(json)
         if (root.optString("app") != APP_TAG) {
@@ -250,10 +215,6 @@ class AuthBackupManager(
         count
     }
 
-    /**
-     * 把备份内容保存到公共下载目录（Android 10+ 走 MediaStore 无需权限）。
-     * @param encrypted true 时文件名为 .yunx（加密备份），否则 .json（明文）
-     */
     suspend fun saveToDownloads(context: Context, content: String, encrypted: Boolean = false): Boolean =
         withContext(Dispatchers.IO) {
             runCatching {

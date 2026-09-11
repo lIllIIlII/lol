@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.viewmodel
 
 import androidx.compose.runtime.getValue
@@ -41,24 +23,16 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
-/** 139 网盘云盘浏览 UI 状态 */
 sealed interface C139CloudUiState {
     data object Loading : C139CloudUiState
     data class Loaded(
         val files: List<ShareFile>,
         val pathNames: List<String>,
-        /** 当前目录 fileId（根="/"） */
         val dirId: String
     ) : C139CloudUiState
     data class Error(val message: String) : C139CloudUiState
 }
 
-/**
- * 139 网盘（和彩云）云盘浏览 ViewModel（参考百度/夸克云盘）：
- * - 目录浏览（根/子目录/面包屑回退）+ 下拉刷新
- * - 文件操作：下载 / 重命名 / 移动 / 创建分享 / 删除 + 长按多选批量
- * 认证走 Cookie（内部提取 authorization），目录用 fileId（根"/"），文件标识 fileId。
- */
 class C139CloudViewModel(
     private val api: C139Api,
     private val cookieProvider: suspend () -> String?,
@@ -99,9 +73,6 @@ class C139CloudViewModel(
 
     init {
         loadRoot()
-        // 启动期未登录时上面的 loadRoot 会残留「请先登录…」错误态；登录态从无到有后自动重载根目录，
-        // 进网盘列表无需再手动点「重试」。drop(1) 跳过 VM 创建时的登录态快照（init 已加载，避免冷启动重复），
-        // distinctUntilChanged 过滤登录后 Cookie/Token 刷新等重复 upsert。
         viewModelScope.launch {
             loginState
                 .drop(1)
@@ -112,8 +83,6 @@ class C139CloudViewModel(
 
     private suspend fun cookie(): String =
         cookieProvider() ?: throw IllegalStateException("请先登录139网盘")
-
-    // ---------- 目录浏览 ----------
 
     fun loadRoot() {
         dirStack.clear()
@@ -144,8 +113,6 @@ class C139CloudViewModel(
         }
         load(dirStack.lastOrNull() ?: "/", nameStack.toList())
     }
-
-    // ---------- 多选 ----------
 
     fun enterMultiSelect(file: ShareFile) {
         multiSelectMode = true
@@ -190,12 +157,9 @@ class C139CloudViewModel(
         downloadTriggered = 0
     }
 
-    /** 中断当前下载（批量下载/文件夹下载） */
     fun cancelDownload() {
         downloadCancelRequested = true
     }
-
-    // ---------- 移动目标浏览 ----------
 
     fun openMoveRoot() {
         moveDirStack.clear()
@@ -236,17 +200,11 @@ class C139CloudViewModel(
         }
     }
 
-    // ---------- 单文件操作 ----------
-
-    /** 139 下载直链的请求头（OBS 直链，UA + Referer） */
     private fun downloadHeaders(): Map<String, String> = mapOf(
         "User-Agent" to C139Constants.PC_UA,
         "Referer" to "https://yun.139.com/"
     )
 
-    /**
-     * 递归收集文件夹内所有文件（保持目录结构）。
-     */
     private suspend fun collectFolderFiles(
         dirId: String,
         prefix: String,
@@ -262,7 +220,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 下载整个文件夹（操作菜单）：递归收集所有文件，保持目录结构保存到 Download */
     fun downloadFolder() {
         val folder = actionFile ?: return
         if (!folder.isdir) return
@@ -281,14 +238,13 @@ class C139CloudViewModel(
                 }
                 var okCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
                         val link = api.getDownloadUrl(file.fid, cookie) ?: return@runCatching
                         downloadManager.enqueue(
                             url = link.downloadUrl,
-                            fileName = relPath, // 相对路径：Download/文件夹A/子目录/文件.mp4
+                            fileName = relPath,
                             size = link.size,
                             platform = DownloadPlatform.C139,
                             headers = downloadHeaders()
@@ -313,15 +269,11 @@ class C139CloudViewModel(
         }
     }
 
-    /** 下载：getDownloadUrl 取 OBS 直链（900s 有效，UA + Referer 即可）→ 内置下载队列 */
-    /** 待确认的下载直链（单文件下载弹窗展示用，长按链接可复制） */
     var downloadLink by mutableStateOf<DownloadLink?>(null)
         private set
 
-    /** 与 downloadLink 配套的入队参数（弹窗确认后直接入队） */
     private var pendingDownload: PendingDownload? = null
 
-    /** 下载文件：取直链 → 弹出下载确认弹窗（对齐解析页行为，确认后入队） */
     fun downloadFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -331,7 +283,6 @@ class C139CloudViewModel(
                     ?: throw IllegalStateException("获取下载链接失败")
                 pendingDownload = PendingDownload(
                     url = link.downloadUrl,
-                    // 139 getDownloadUrl 响应不含 name → 用列表里的文件名（与分享链接下载一致，避免 fileId 乱码）
                     fileName = file.fname.ifBlank { link.filename },
                     size = link.size,
                     headers = mapOf(
@@ -339,7 +290,7 @@ class C139CloudViewModel(
                         "Referer" to "https://yun.139.com/"
                     )
                 )
-                downloadLink = link // 弹下载确认弹窗（长按直链可复制）
+                downloadLink = link
             } catch (e: Exception) {
                 cloudMessage = e.message ?: "下载失败"
             } finally {
@@ -348,7 +299,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 下载弹窗确认：用已生成的直链入队 */
     fun startDownload() {
         val pd = pendingDownload ?: return
         downloadLink = null
@@ -374,13 +324,11 @@ class C139CloudViewModel(
         }
     }
 
-    /** 关闭下载弹窗（放弃下载） */
     fun dismissDownloadDialog() {
         downloadLink = null
         pendingDownload = null
     }
 
-    /** 重命名 */
     fun renameFile(newName: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -398,7 +346,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 移动（异步任务 → 轮询） */
     fun moveFile(toDirId: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -419,7 +366,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 创建分享（139 提取码系统自动生成，仅选有效期） */
     fun shareFile(period: Int?) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -437,7 +383,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 删除（异步任务 → 轮询） */
     fun deleteFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -458,9 +403,6 @@ class C139CloudViewModel(
         }
     }
 
-    // ---------- 批量操作 ----------
-
-    /** 批量下载（不切页；选中文件夹时递归下载整个文件夹并保持目录结构） */
     fun downloadSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -470,7 +412,6 @@ class C139CloudViewModel(
             downloadCancelRequested = false
             try {
                 val cookie = cookie()
-                // 展开选中项：文件直接加入，文件夹递归收集
                 val tasks = mutableListOf<Pair<ShareFile, String>>()
                 for (file in files) {
                     if (file.isdir) {
@@ -487,14 +428,12 @@ class C139CloudViewModel(
                 var okCount = 0
                 var failCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
                         val link = api.getDownloadUrl(file.fid, cookie) ?: return@runCatching
                         downloadManager.enqueue(
                             url = link.downloadUrl,
-                            // 文件夹内文件用相对路径；根目录文件用列表文件名（139 取链响应不含 name）
                             fileName = if (relPath.contains('/')) relPath else file.fname.ifBlank { link.filename },
                             size = link.size,
                             platform = DownloadPlatform.C139,
@@ -524,7 +463,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 批量分享 */
     fun shareSelected(period: Int?) {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -545,7 +483,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 批量移动 */
     fun moveSelected(toDirId: String) {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -567,7 +504,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 批量删除 */
     fun deleteSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -589,9 +525,6 @@ class C139CloudViewModel(
         }
     }
 
-    // ---------- 内部 ----------
-
-    /** 下拉刷新 */
     fun refresh() {
         val current = uiState.value
         if (current !is C139CloudUiState.Loaded) {
@@ -632,7 +565,6 @@ class C139CloudViewModel(
         }
     }
 
-    /** 轮询异步任务直到 Succeed（最长 ~30s） */
     private suspend fun pollTask(taskId: String) {
         delay(500)
         repeat(30) {

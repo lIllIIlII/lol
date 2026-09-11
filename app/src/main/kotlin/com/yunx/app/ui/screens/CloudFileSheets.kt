@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ClipData
@@ -93,10 +75,8 @@ import com.yunx.app.ui.resolve.ShareFileRow
 import com.yunx.app.ui.viewmodel.QuarkCloudUiState
 import com.yunx.app.ui.viewmodel.QuarkCloudViewModel
 
-/** 文件操作菜单类型（FileActionSheet 内切换） */
 private enum class ActionStep { MENU, MOVE, SHARE, RENAME, DELETE }
 
-/** 有效期选项：名称 + expired_type 值 */
 private val expireOptions = listOf(
     "永久有效" to 1,
     "1 天" to 2,
@@ -104,10 +84,6 @@ private val expireOptions = listOf(
     "30 天" to 4
 )
 
-/**
- * 夸克云盘文件操作弹窗：更多按钮 → 操作菜单（下载/分享/移动/重命名/删除），
- * 内部按步骤切换：移动选目录 / 分享设置 / 重命名输入 / 删除确认。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileActionSheet(
@@ -116,7 +92,6 @@ fun FileActionSheet(
     onDismiss: () -> Unit
 ) {
     var step by remember { mutableStateOf(ActionStep.MENU) }
-    // 移动目标浏览用独立状态（moveUiState），不影响主列表
     val moveState by viewModel.moveUiState.collectAsState()
     val operating = viewModel.isOperating
 
@@ -183,7 +158,6 @@ fun FileActionSheet(
         }
     }
 
-    // 分享创建成功：展示链接与提取码（可复制）
     viewModel.shareResult?.let { info ->
         ShareResultDialog(
             info = info,
@@ -192,7 +166,6 @@ fun FileActionSheet(
     }
 }
 
-/** 操作菜单主界面 */
 @Composable
 private fun ActionMenu(
     file: ShareFile,
@@ -208,7 +181,6 @@ private fun ActionMenu(
             .fillMaxWidth()
             .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 32.dp)
     ) {
-        // 标题
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 modifier = Modifier.size(40.dp),
@@ -243,7 +215,6 @@ private fun ActionMenu(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 操作项
         if (!file.isdir) {
             ActionItem(
                 icon = Icons.Outlined.Download,
@@ -292,7 +263,6 @@ private fun ActionMenu(
     }
 }
 
-/** 操作项行 */
 @Composable
 private fun ActionItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -329,7 +299,6 @@ private fun ActionItem(
     }
 }
 
-/** 移动：浏览目标目录并确认（独立浏览状态 moveUiState，不影响主列表） */
 @Composable
 private fun MoveStep(
     file: ShareFile,
@@ -353,12 +322,10 @@ private fun MoveStep(
             onNavigate = { viewModel.moveNavigateToLevel(it) }
         )
         Spacer(modifier = Modifier.height(8.dp))
-        // 返回上一级：固定在目录区上方（不参与 AnimatedContent 过渡，避免与目录内容交叉叠加）
         if ((moveState as? QuarkCloudUiState.Loaded)?.pathNames?.isNotEmpty() == true) {
             BackToParentItem(onClick = { viewModel.moveBack() })
             Spacer(modifier = Modifier.height(4.dp))
         }
-        // 移动目录切换：淡入过渡
         AnimatedContent(
             targetState = moveState,
             transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(140)) },
@@ -435,7 +402,6 @@ private fun MoveStep(
     }
 }
 
-/** 分享：提取码 + 有效期设置 */
 @Composable
 private fun ShareStep(
     file: ShareFile,
@@ -511,7 +477,6 @@ private fun ShareStep(
                     passcode = passcode,
                     expiredType = expiredType
                 )
-                // 不在此关闭：保留弹窗，等 shareResult 弹出分享结果
             },
             enabled = !operating && (!withPassword || passcode.length == 4),
             modifier = Modifier
@@ -529,7 +494,6 @@ private fun ShareStep(
     }
 }
 
-/** 重命名输入 */
 @Composable
 private fun RenameStep(
     file: ShareFile,
@@ -574,7 +538,6 @@ private fun RenameStep(
     }
 }
 
-/** 删除确认 */
 @Composable
 private fun DeleteStep(
     file: ShareFile,
@@ -604,16 +567,13 @@ private fun DeleteStep(
     )
 }
 
-/** 分享结果：链接 + 提取码 + 复制 */
 @Composable
 internal fun ShareResultDialog(
     info: com.yunx.app.data.network.model.ShareInfo,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    // Dialog 内提示宿主（AlertDialog 为独立窗口）
     val snackbarHostState = rememberGlobalSnackbarHostState()
-    // 拼接分享文案（按平台区分：139 / 123 / UC / 迅雷 / 百度 / 夸克）
     val platformName = when {
         info.shareUrl.contains("139.com") -> "139网盘"
         info.shareUrl.contains("123pan") || info.shareUrl.contains("123865") -> "123云盘"
@@ -633,14 +593,12 @@ internal fun ShareResultDialog(
         onDismissRequest = onDismiss,
         title = { Text("分享成功") },
         text = {
-            // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 420.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                // 等宽展示分享文案，便于整段复制
                 Text(
                     text = shareText,
                     style = MaterialTheme.typography.bodyMedium.copy(
@@ -654,7 +612,6 @@ internal fun ShareResultDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // Dialog 内提示（AlertDialog 为独立窗口，需自带 Snackbar 宿主）
                 SnackbarHost(hostState = snackbarHostState)
             }
         },
@@ -677,7 +634,6 @@ internal fun ShareResultDialog(
     )
 }
 
-/** 步骤头部：返回按钮 + 标题 */
 @Composable
 private fun StepHeader(title: String, subtitle: String, onBack: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -716,14 +672,8 @@ private fun expireLabel(type: Int): String = when (type) {
     else -> "永久有效"
 }
 
-/** 批量操作步骤类型 */
 internal enum class BatchStep { MENU, SHARE, MOVE, DELETE }
 
-/**
- * 批量操作弹窗（长按多选后）：下载 / 分享 / 移动 / 删除。
- * 分享/移动/删除复用与单文件一致的表单与独立目录浏览。
- * @param initialStep 初始步骤（底部栏点击下载/删除直接执行，分享/移动传入对应步骤）
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun BatchActionSheet(
@@ -786,7 +736,6 @@ internal fun BatchActionSheet(
         }
     }
 
-    // 分享创建成功：展示链接与提取码（保留弹窗以正常显示）
     viewModel.shareResult?.let { info ->
         ShareResultDialog(
             info = info,
@@ -795,7 +744,6 @@ internal fun BatchActionSheet(
     }
 }
 
-/** 批量操作菜单主界面 */
 @Composable
 private fun BatchMenu(
     count: Int,
@@ -809,7 +757,6 @@ private fun BatchMenu(
             .fillMaxWidth()
             .padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 32.dp)
     ) {
-        // 标题
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(
                 modifier = Modifier.size(40.dp),
@@ -874,7 +821,6 @@ private fun BatchMenu(
     }
 }
 
-/** 批量分享：提取码 + 有效期 */
 @Composable
 private fun BatchShareStep(
     count: Int,
@@ -950,7 +896,6 @@ private fun BatchShareStep(
                     passcode = passcode,
                     expiredType = expiredType
                 )
-                // 不关闭：等 shareResult 弹出分享结果
             },
             enabled = !operating && (!withPassword || passcode.length == 4),
             modifier = Modifier
@@ -968,7 +913,6 @@ private fun BatchShareStep(
     }
 }
 
-/** 批量移动：浏览目标目录并确认 */
 @Composable
 private fun BatchMoveStep(
     count: Int,
@@ -978,7 +922,6 @@ private fun BatchMoveStep(
     onBack: () -> Unit,
     onDone: () -> Unit
 ) {
-    // 首次进入该步骤：加载移动目标根目录（否则 moveUiState 停留在 Loading 一直转圈）
     LaunchedEffect(Unit) {
         viewModel.openMoveRoot()
     }
@@ -996,12 +939,10 @@ private fun BatchMoveStep(
             onNavigate = { viewModel.moveNavigateToLevel(it) }
         )
         Spacer(modifier = Modifier.height(8.dp))
-        // 返回上一级：固定在目录区上方（不参与 AnimatedContent 过渡，避免与目录内容交叉叠加）
         if ((moveState as? QuarkCloudUiState.Loaded)?.pathNames?.isNotEmpty() == true) {
             BackToParentItem(onClick = { viewModel.moveBack() })
             Spacer(modifier = Modifier.height(4.dp))
         }
-        // 移动目录切换：淡入过渡
         AnimatedContent(
             targetState = moveState,
             transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(140)) },
@@ -1078,7 +1019,6 @@ private fun BatchMoveStep(
     }
 }
 
-/** 批量删除确认 */
 @Composable
 private fun BatchDeleteStep(
     count: Int,

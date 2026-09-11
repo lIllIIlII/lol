@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui
 
 import androidx.compose.animation.AnimatedContent
@@ -163,13 +145,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.yunx.app.data.network.HttpClients
 
-/**
- * 主页框架：
- * - 顶部可折叠大标题（LargeTopAppBar），切换 Tab 时标题文字随 Tab 变化，折叠状态不受影响；
- * - 导航 Tab（解析 / 网盘 / 下载 / 设置）：竖屏为底部导航栏（NavigationBar），横屏切换为侧边导航栏（NavigationRail）；
- * - 通过 SaveableStateHolder 保存各页面状态，切换 Tab 再切回来不会重置；
- * - 夸克登录页全屏覆盖展示。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen() {
@@ -195,17 +170,11 @@ fun MainScreen() {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // 横屏时使用侧边导航栏（NavigationRail），竖屏保持底部导航栏（NavigationBar）
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    // 弹窗队列化：欢迎弹窗由 MainActivity 统一入队（StartupDialogHost 渲染），
-    // 本页不再直接展示，避免与安全提示/通知引导重叠
 
-    // 更新检测：请求 GitHub 最新 Release（仓库无 Release / 网络失败则不提示）
     var showUpdateDialog by remember { mutableStateOf(false) }
     var pendingRelease by remember { mutableStateOf<UpdateChecker.Release?>(null) }
     LaunchedEffect(Unit) {
-        // 启动静默检测新版本（非强制；失败静默）。
-        // 错峰：等启动弹窗队列（欢迎/安全提示/通知引导）清空后再弹更新框，避免重叠
         while (StartupDialogQueue.isBusy) {
             kotlinx.coroutines.delay(300)
         }
@@ -245,7 +214,6 @@ fun MainScreen() {
     val pan123Repository = remember {
         Pan123AccountRepository(db.pan123AccountDao(), pan123Api)
     }
-    // 吸析At 新增：蓝奏云 / 奶牛快传 / 小飞机网盘（简单 Cookie 账号 + 解析仓库）
     val simpleRepository = remember {
         SimpleAccountRepository(db.simpleAccountDao())
     }
@@ -253,13 +221,10 @@ fun MainScreen() {
         cookieProvider = { simpleRepository.getAccount(com.yunx.app.data.repository.SimpleNetdisk.LANZOU)?.cookie }
     ) }
     val cowTransferResolveRepository = remember { CowTransferResolveRepository() }
-    // 小飞机 / 蓝奏云优享版：同源 WsDisk 协议引擎（v1.4.0 重写，根治未知文件夹）
     val feijiResolveRepository = remember { WsDiskResolveRepository(WsDiskApi.FEIJI) }
     val ilanzouResolveRepository = remember { WsDiskResolveRepository(WsDiskApi.ILANZOU) }
-    // 城通网盘 / 文叔叔（v1.5.0 新增，均沙箱实测验证）
     val ctfileResolveRepository = remember { CtfileResolveRepository() }
     val wenshushuResolveRepository = remember { WenshushuResolveRepository() }
-    // 网盘认证备份：打包/恢复各平台凭证
     val backupManager = remember {
         AuthBackupManager(
             db.quarkAccountDao(),
@@ -270,28 +235,20 @@ fun MainScreen() {
             db.pan123AccountDao()
         )
     }
-    // 下载管理器：OkHttp 分片下载器 + Room 任务持久化 + 可配置线程数（设置页动态生效）
-    // 下载客户端由全局 HttpClients 统一管理（大 Dispatcher 保障分片并发，不锁死 CDN host；
-    // 并支持隐藏菜单「忽略 SSL 证书」开关，抓包调试时即时生效，无需重启）
     val downloadManager = remember {
         DownloadManager(
             context = context,
             dao = db.downloadTaskDao(),
             downloader = ChunkDownloader({ HttpClients.downloadClient() }),
             threadProvider = { platform -> settings.downloadThreadsFor(platform) },
-            // 自定义下载保存目录（SAF tree Uri），设置页可选，动态生效
             saveDirProvider = { settings.downloadDirUri },
-            // 网络与下载策略（设置页可调，动态生效）：并发任务数 / 全局限速 / 失败重试
             concurrencyProvider = { settings.maxConcurrentDownloads },
             speedLimitProvider = { settings.downloadSpeedLimit },
             retryCountProvider = { settings.downloadRetryCount },
-            // 锁屏保持下载 / 通知栏速度开关
             keepWhenLockedProvider = { settings.keepDownloadWhenLocked },
             showSpeedProvider = { settings.notificationShowSpeed }
         )
     }
-    // Android 9- 写公共 Download 需要 WRITE_EXTERNAL_STORAGE 运行时授权：
-    // 下载完成保存前由 DownloadManager.storagePermissionProvider 触发动态申请，授权后自动继续保存
     var pendingStoragePermission by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     val storagePermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -301,7 +258,7 @@ fun MainScreen() {
     }
     downloadManager.storagePermissionProvider = {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            true // Android 10+ MediaStore 无需存储权限
+            true
         } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
             true
         } else {
@@ -331,16 +288,12 @@ fun MainScreen() {
     val pan123ViewModel: Pan123AccountViewModel = viewModel(
         factory = Pan123AccountViewModel.Factory(pan123Repository)
     )
-    // 各平台「账号是否已登录」流：云盘浏览 VM 在启动期（未登录）init 加载会残留「请先登录…」错误态，
-    // 首次登录成功后由 VM 监听该流自动重载根目录（见各 XxxCloudViewModel init）
     val quarkLoginState = remember { repository.observeAccount().map { it != null } }
     val ucLoginState = remember { ucRepository.observeAccount().map { it != null } }
     val xunleiLoginState = remember { xunleiRepository.observeAccount().map { it != null } }
     val baiduLoginState = remember { baiduRepository.observeAccount().map { it != null } }
     val c139LoginState = remember { c139Repository.observeAccount().map { it != null } }
     val pan123LoginState = remember { pan123Repository.observeAccount().map { it != null } }
-    // 夸克云盘浏览：作为网盘 Tab 内容展示（非全屏），cookie 从数据库读取（避免 StateFlow 初始值为空的竞态）；
-    // 下载前经 getFreshCookie 惰性刷新 __puus（修复 AlistGo/alist#830 下载 412）
     val quarkCloudViewModel: QuarkCloudViewModel = viewModel(
         factory = QuarkCloudViewModel.Factory(
             api,
@@ -349,8 +302,6 @@ fun MainScreen() {
             loginState = quarkLoginState
         )
     )
-    // UC 网盘云盘浏览：点击已登录的 UC 卡片打开（cookie 从数据库读取）；
-    // 取链前经 getFreshCookie 惰性刷新 __puus（与夸克同源，修复取链/直链过期失败）
     val ucCloudViewModel: UCCoudViewModel = viewModel(
         factory = UCCoudViewModel.Factory(
             ucApi,
@@ -359,7 +310,6 @@ fun MainScreen() {
             loginState = ucLoginState
         )
     )
-    // 迅雷 access_token 过期（401 unauthenticated）自动刷新：refresh_token 换新并持久化（对齐官方 /v1/auth/token 抓包）
     xunleiApi.refreshTokenProvider = { deviceId ->
         val acc = xunleiRepository.getAccount()
         if (acc == null || acc.refreshToken.isBlank()) null
@@ -367,7 +317,6 @@ fun MainScreen() {
             xunleiRepository.updateTokens(at, nrt)
         }
     }
-    // 迅雷云盘浏览：点击已登录的迅雷卡片打开（access_token/设备指纹/captcha 从数据库读取）
     val xunleiCloudViewModel: XunleiCloudViewModel = viewModel(
         factory = XunleiCloudViewModel.Factory(
             xunleiApi,
@@ -378,7 +327,6 @@ fun MainScreen() {
             loginState = xunleiLoginState
         )
     )
-    // 百度网盘云盘浏览：点击已登录的百度卡片打开（cookie 从数据库读取）
     val baiduCloudViewModel: BaiduCloudViewModel = viewModel(
         factory = BaiduCloudViewModel.Factory(
             baiduApi,
@@ -387,7 +335,6 @@ fun MainScreen() {
             loginState = baiduLoginState
         )
     )
-    // 139 网盘云盘浏览：点击已登录的 139 卡片打开（cookie 从数据库读取）
     val c139CloudViewModel: C139CloudViewModel = viewModel(
         factory = C139CloudViewModel.Factory(
             c139Api,
@@ -396,7 +343,6 @@ fun MainScreen() {
             loginState = c139LoginState
         )
     )
-    // 123 云盘浏览：点击已登录的 123 卡片打开（token 从数据库读取）
     val pan123CloudViewModel: Pan123CloudViewModel = viewModel(
         factory = Pan123CloudViewModel.Factory(
             pan123Api,
@@ -405,7 +351,6 @@ fun MainScreen() {
             loginState = pan123LoginState
         )
     )
-    // 网盘空间详情：网盘页顶部「空间总览」展示 6 平台容量使用
     val driveQuotaViewModel: DriveQuotaViewModel = viewModel(
         factory = DriveQuotaViewModel.Factory(
             api, { repository.getAccount()?.cookie },
@@ -425,7 +370,6 @@ fun MainScreen() {
             accountProvider = { xunleiRepository.getAccount()?.accessToken },
             deviceIdProvider = { xunleiRepository.getAccount()?.deviceId },
             captchaProvider = { xunleiRepository.getAccount()?.captchaToken },
-            // token 过期（含导入恢复后旧 token 过期）自动用 refresh_token 刷新并持久化
             refreshProvider = {
                 val acc = xunleiRepository.getAccount()
                 if (acc == null || acc.refreshToken.isBlank()) null
@@ -469,7 +413,8 @@ fun MainScreen() {
             ctfileResolveRepository,
             wenshushuResolveRepository,
             downloadManager,
-            db.bookmarkDao()
+            db.bookmarkDao(),
+            remember { SettingsRepository(context) }
         )
     )
     val downloadViewModel: DownloadViewModel = viewModel(
@@ -491,11 +436,9 @@ fun MainScreen() {
     val cowAccount by simpleViewModel.cowAccount.collectAsState()
     val feijiAccount by simpleViewModel.feijiAccount.collectAsState()
 
-    // 首次下载引导：锁屏保持下载默认开启，但新用户未加入「忽略电池优化」白名单 →引导一次
     var showBatteryGuide by remember { mutableStateOf(false) }
     var batteryGuideShown by remember { mutableStateOf(false) }
 
-    // 解析页发起下载后，自动切换到「下载」Tab
     LaunchedEffect(resolveViewModel.downloadStarted) {
         if (resolveViewModel.downloadStarted) {
             currentTab = MainTab.Download
@@ -503,8 +446,6 @@ fun MainScreen() {
         }
     }
 
-    // 首次下载任务启动：锁屏保持下载默认开启但未豁免电池优化 →引导一次。
-    // 监听任务状态而非 downloadStarted，覆盖解析页/网盘页/手动添加等所有下载入口。
     LaunchedEffect(Unit) {
         downloadViewModel.tasks.collect { tasks ->
             if (!batteryGuideShown && tasks.any {
@@ -523,9 +464,6 @@ fun MainScreen() {
         }
     }
 
-    // 欢迎弹窗已队列化：由 MainActivity 入队 + StartupDialogHost 渲染（修复与安全提示重叠）
-
-    // 夸克登录页：全屏覆盖
     if (showQuarkLogin) {
         QuarkLoginScreen(
             viewModel = viewModel,
@@ -535,7 +473,6 @@ fun MainScreen() {
         return
     }
 
-    // UC 登录页：全屏覆盖
     if (showUCLogin) {
         UCLoginScreen(
             viewModel = ucViewModel,
@@ -545,14 +482,12 @@ fun MainScreen() {
         return
     }
 
-    // 迅雷登录页：全屏覆盖（账号+密码，可能触发短信验证）
     if (showXunleiLogin) {
         XunleiLoginScreen(
             viewModel = xunleiViewModel,
             onBack = { showXunleiLogin = false },
             onSaved = { showXunleiLogin = false },
             onVerify = { url, deviceId ->
-                // 应用内验证：登录页让位，切到验证 WebView 全屏承载（不再跳外部浏览器）
                 xunleiVerifyUrl = url
                 xunleiVerifyDeviceId = deviceId
                 showXunleiLogin = false
@@ -562,16 +497,14 @@ fun MainScreen() {
         return
     }
 
-    // 迅雷验证页（应用内 WebView 承载验证面板）：全屏覆盖（兜底承载，核心验证仍走自有短信流）
     if (showXunleiVerify) {
         XunleiVerifyWebViewScreen(
             verifyUrl = xunleiVerifyUrl,
             deviceId = xunleiVerifyDeviceId,
             onResult = { success, _ ->
                 showXunleiVerify = false
-                showXunleiLogin = true // 回到登录页
+                showXunleiLogin = true
                 if (success) {
-                    // 设备已验证受信任：自动重试密码登录（应直接成功并自动关闭登录页）
                     SnackbarController.show("验证完成，正在自动登录…")
                     xunleiViewModel.retryLoginAfterVerify()
                 } else {
@@ -580,13 +513,12 @@ fun MainScreen() {
             },
             onBack = {
                 showXunleiVerify = false
-                showXunleiLogin = true // 返回登录页短信步骤
+                showXunleiLogin = true
             }
         )
         return
     }
 
-    // 百度登录页：全屏覆盖（WebView 登录提取 Cookie）
     if (showBaiduLogin) {
         BaiduLoginScreen(
             viewModel = baiduViewModel,
@@ -596,7 +528,6 @@ fun MainScreen() {
         return
     }
 
-    // 139 登录页：全屏覆盖（WebView 登录提取 Cookie）
     if (showC139Login) {
         C139LoginScreen(
             viewModel = c139ViewModel,
@@ -606,7 +537,6 @@ fun MainScreen() {
         return
     }
 
-    // 123 登录页：全屏覆盖（WebView 打开官网登录，提取 localStorage 的 authorToken）
     if (showPan123Login) {
         Pan123LoginScreen(
             viewModel = pan123ViewModel,
@@ -616,7 +546,6 @@ fun MainScreen() {
         return
     }
 
-    // 蓝奏云登录页：全屏覆盖（正确登录入口 pc.woozooo.com/account.php，非下载页）
     if (showLanzouLogin) {
         GenericWebViewLoginScreen(
             config = GenericLoginConfigs.lanzou,
@@ -627,7 +556,6 @@ fun MainScreen() {
         return
     }
 
-    // 奶牛快传登录页：全屏覆盖（官网首页 → 点击登录）
     if (showCowLogin) {
         GenericWebViewLoginScreen(
             config = GenericLoginConfigs.cowTransfer,
@@ -638,7 +566,6 @@ fun MainScreen() {
         return
     }
 
-    // 小飞机网盘登录页：全屏覆盖（网页版控制台 → 点击登录）
     if (showFeijiLogin) {
         GenericWebViewLoginScreen(
             config = GenericLoginConfigs.feiji,
@@ -649,18 +576,12 @@ fun MainScreen() {
         return
     }
 
-    // 折叠标题状态提升到本层：跨页面共享，页面切换时折叠/展开状态保持不变
-    // 用 exitUntilCollapsed（默认实现，含松手吸附）：滚动时标题先收起再滚内容；
-    // 向上滚动回顶部过程中标题保持收起，只有列表到达最顶部后继续下拉（overscroll）才重新展开
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
 
-    // 全局 Snackbar 宿主（Material3，替换原 Toast 提示）
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
-    // 主框架与全屏覆盖层（关于页）放在同一 Box：覆盖层带过渡动画
     Box(modifier = Modifier.fillMaxSize()) {
-    // 顶部可折叠大标题（竖屏 / 横屏共用）
     val topBarContent: @Composable () -> Unit = {
         LargeTopAppBar(
             title = {
@@ -671,7 +592,6 @@ fun MainScreen() {
                 )
             },
             actions = {
-                // 解析页标题右上角：收藏网盘链接入口
                 if (currentTab == MainTab.Resolve) {
                     IconButton(onClick = { showBookmarks = true }) {
                         Icon(Icons.Outlined.Bookmarks, contentDescription = "收藏网盘链接")
@@ -686,12 +606,10 @@ fun MainScreen() {
             )
         )
     }
-    // Tab 内容区（竖屏 / 横屏共用）：每个页面独立保存状态，切换 Tab 再切回来不丢失；带 Material3 过渡动画（按 Tab 顺序决定方向）
     val tabContent: @Composable () -> Unit = {
         AnimatedContent(
             targetState = currentTab,
             transitionSpec = {
-                // 根据 Tab 顺序决定滑动方向：向右切（新Tab在右边）→ 新页从右滑入；向左切反向
                 val forward = targetState.ordinal > initialState.ordinal
                 if (forward) {
                     (fadeIn(tween(220)) + slideInHorizontally(tween(220)) { it / 4 })
@@ -776,11 +694,9 @@ fun MainScreen() {
     }
 
     if (isLandscape) {
-        // 横屏：壁纸背景 + 左侧侧边导航栏（NavigationRail）+ 右侧顶栏 & 内容
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // 竖屏由 Scaffold 提供主题背景；横屏手动布局需显式设置，否则露出窗口默认白色
                 .background(MaterialTheme.colorScheme.background)
         ) {
             WallpaperBackground()
@@ -804,14 +720,12 @@ fun MainScreen() {
                     }
                 }
             }
-            // 全局 Snackbar（横屏无底部栏，悬浮底部居中）
             SnackbarHost(
                 hostState = snackbarHostState,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
     } else {
-        // 竖屏：壁纸背景 + Scaffold（透明）+ 玻璃胶囊底部导航栏
         Box(modifier = Modifier.fillMaxSize()) {
             WallpaperBackground()
             Scaffold(
@@ -837,7 +751,6 @@ fun MainScreen() {
         }
     }
 
-    // 关于吸析：叠加覆盖层（淡入 + 轻微缩放过渡）
     AnimatedVisibility(
         visible = showAbout,
         enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),
@@ -847,14 +760,12 @@ fun MainScreen() {
         AboutScreen(
             onBack = { showAbout = false },
             onPreviewOnboarding = {
-                // 重看欢迎弹窗：走全局弹窗队列（与其他弹窗错峰，不重叠）
                 showAbout = false
                 StartupDialogQueue.enqueue(StartupDialogKind.WELCOME)
             }
         )
     }
 
-    // 支持开发：叠加覆盖层（淡入 + 轻微缩放过渡）
     AnimatedVisibility(
         visible = showSupport,
         enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),
@@ -866,7 +777,6 @@ fun MainScreen() {
         )
     }
 
-    // 反馈联系（原汇报日志）：叠加覆盖层（淡入 + 轻微缩放过渡）
     AnimatedVisibility(
         visible = showFeedback,
         enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),
@@ -878,7 +788,6 @@ fun MainScreen() {
         )
     }
 
-    // 主题与外观：叠加覆盖层（淡入 + 轻微缩放过渡）
     AnimatedVisibility(
         visible = showTheme,
         enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),
@@ -890,7 +799,6 @@ fun MainScreen() {
         )
     }
 
-    // 收藏网盘链接：叠加覆盖层（淡入 + 轻微缩放过渡）
     AnimatedVisibility(
         visible = showBookmarks,
         enter = fadeIn(tween(220)) + scaleIn(tween(220), initialScale = 0.96f),
@@ -909,7 +817,6 @@ fun MainScreen() {
     }
     }
 
-    // 首次下载引导：加入「忽略电池优化」白名单（锁屏保持下载生效的前提）
     if (showBatteryGuide) {
         AlertDialog(
             onDismissRequest = { showBatteryGuide = false },
@@ -941,7 +848,6 @@ fun MainScreen() {
         )
     }
 
-    // 发现新版本弹窗（覆盖在主页之上，iOS 风格）
     pendingRelease?.let { release ->
         if (showUpdateDialog) {
             UpdateDialog(
@@ -949,10 +855,8 @@ fun MainScreen() {
                 release = release,
                 onDownload = {
                     showUpdateDialog = false
-                    // 应用内下载更新 APK（DownloadManager + GENERIC 平台），完成后点击「打开」即可安装
                     if (release.downloadUrl.isNotBlank()) {
                         scope.launch {
-                            // 先探测直链可达性（GitHub 直链国内不可达时自动切 gh-proxy 镜像）
                             SnackbarController.show("正在获取下载地址…")
                             val url = UpdateChecker.resolveDownloadUrl(release)
                             if (url.isBlank()) {
@@ -977,9 +881,6 @@ fun MainScreen() {
     }
 }
 
-/**
- * 底部导航栏（竖屏）：4 个主 Tab（解析 / 网盘 / 下载 / 设置）。
- */
 @Composable
 private fun MainBottomBar(
     currentTab: MainTab,
@@ -1002,9 +903,6 @@ private fun MainBottomBar(
     }
 }
 
-/**
- * 侧边导航栏（横屏）：同 4 个主 Tab，未选中项只显示图标，节省横向空间。
- */
 @Composable
 private fun MainNavigationRail(
     currentTab: MainTab,

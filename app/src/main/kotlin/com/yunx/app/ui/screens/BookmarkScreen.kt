@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ClipData
@@ -95,18 +77,13 @@ import com.yunx.app.data.network.ShareLinkParser
 import com.yunx.app.ui.rememberGlobalSnackbarHostState
 import com.yunx.app.ui.viewmodel.BookmarkViewModel
 
-/** 「自定义分类」虚拟选项标识（不参与持久化，仅用于弹窗交互） */
 private const val CUSTOM_CATEGORY = "__custom__"
 
-/**
- * 收藏网盘链接页：分类筛选 + 收藏列表，支持新增 / 解析 / 复制 / 修改分类 / 删除。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookmarkScreen(
     viewModel: BookmarkViewModel,
     onBack: () -> Unit,
-    /** 点击收藏 → 关闭本页并切到解析页自动解析该链接 */
     onResolve: (link: String, pwd: String) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -114,10 +91,8 @@ fun BookmarkScreen(
     val categories by viewModel.categories.collectAsState()
     val context = LocalContext.current
 
-    // 独立全屏覆盖页：自带 Snackbar 宿主（覆盖层会遮挡主页 Scaffold 的 SnackbarHost）
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
-    // null 表示「全部」
     var selectedCategory by rememberSaveable { mutableStateOf<String?>(null) }
     var showAddDialog by remember { mutableStateOf(false) }
     var editingBookmark by remember { mutableStateOf<BookmarkEntity?>(null) }
@@ -159,7 +134,6 @@ fun BookmarkScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // 分类筛选：作为列表头部，随列表一起上下滚动
             item(key = "categories") {
                 CategoryFilterBar(
                     categories = categories,
@@ -184,7 +158,6 @@ fun BookmarkScreen(
         }
     }
 
-    // 添加收藏弹窗
     if (showAddDialog) {
         AddBookmarkDialog(
             categories = categories,
@@ -203,7 +176,6 @@ fun BookmarkScreen(
         )
     }
 
-    // 修改分类弹窗
     editingBookmark?.let { bookmark ->
         EditCategoryDialog(
             currentCategory = bookmark.category,
@@ -216,7 +188,6 @@ fun BookmarkScreen(
         )
     }
 
-    // 长按操作菜单
     menuBookmark?.let { bookmark ->
         BookmarkMenuDialog(
             bookmark = bookmark,
@@ -242,7 +213,6 @@ fun BookmarkScreen(
     }
 }
 
-/** 分类筛选胶囊：全部 + 各分类 */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun CategoryFilterBar(
@@ -270,7 +240,6 @@ private fun CategoryFilterBar(
     }
 }
 
-/** 收藏列表项：平台 / 分类标签 + 标题 + 链接，点击解析、长按打开菜单 */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BookmarkRow(
@@ -338,7 +307,6 @@ private fun BookmarkRow(
     }
 }
 
-/** 空状态 */
 @Composable
 private fun EmptyBookmark(onAdd: () -> Unit) {
     Column(
@@ -375,7 +343,6 @@ private fun EmptyBookmark(onAdd: () -> Unit) {
     }
 }
 
-/** 新增收藏弹窗：链接 + 标题 + 提取码 + 分类 */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun AddBookmarkDialog(
@@ -390,11 +357,9 @@ private fun AddBookmarkDialog(
     var customCategory by remember { mutableStateOf("") }
     val isCustom = selectedCategory == CUSTOM_CATEGORY
     val scrollState = rememberScrollState()
-    // 选中「自定义」后自动滚到底部，确保输入框可见（收藏弹窗内容较长，输入框默认在视口外）
     LaunchedEffect(isCustom) {
         if (isCustom) {
             kotlinx.coroutines.delay(300)
-            // 展开动画结束后滚动到底部（maxValue 稳定后）
             kotlinx.coroutines.delay(120)
             scrollState.animateScrollTo(scrollState.maxValue)
         }
@@ -447,7 +412,6 @@ private fun AddBookmarkDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 「自定义」置顶显示，方便直接新建分类（过滤分类里同名字项，避免出现两个"自定义"chip）
                     FilterChip(
                         selected = isCustom,
                         onClick = { selectedCategory = CUSTOM_CATEGORY },
@@ -461,7 +425,6 @@ private fun AddBookmarkDialog(
                         )
                     }
                 }
-                // 选择「自定义」时才展开输入框（与解析页「添加至收藏」交互一致，带动画）
                 AnimatedVisibility(
                     visible = isCustom,
                     enter = expandVertically(tween(200)) + fadeIn(tween(200)),
@@ -497,7 +460,6 @@ private fun AddBookmarkDialog(
     )
 }
 
-/** 解析详情页「添加至收藏」弹窗：可自定义标题；分类选择含「自定义」选项，点击后展开输入框 */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun AddToBookmarkDialog(
@@ -540,7 +502,6 @@ internal fun AddToBookmarkDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 「自定义」置顶显示，方便直接新建分类（过滤分类里同名字项，避免出现两个"自定义"chip）
                     FilterChip(
                         selected = isCustom,
                         onClick = { selectedCategory = CUSTOM_CATEGORY },
@@ -587,7 +548,6 @@ internal fun AddToBookmarkDialog(
     )
 }
 
-/** 修改分类弹窗 */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun EditCategoryDialog(
@@ -600,7 +560,6 @@ private fun EditCategoryDialog(
     var customCategory by remember { mutableStateOf("") }
     val isCustom = selectedCategory == CUSTOM_CATEGORY
     val scrollState = rememberScrollState()
-    // 选中「自定义」后自动滚到底部，确保输入框可见
     LaunchedEffect(isCustom) {
         if (isCustom) {
             kotlinx.coroutines.delay(250)
@@ -612,7 +571,6 @@ private fun EditCategoryDialog(
         onDismissRequest = onDismiss,
         title = { Text("修改分类") },
         text = {
-            // 横屏/小屏时内容超高可滚动，避免按钮被挤出屏幕
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -624,7 +582,6 @@ private fun EditCategoryDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // 「自定义」置顶显示，方便直接新建分类
                     FilterChip(
                         selected = isCustom,
                         onClick = { selectedCategory = CUSTOM_CATEGORY },
@@ -638,7 +595,6 @@ private fun EditCategoryDialog(
                         )
                     }
                 }
-                // 选择「自定义」时才展开输入框（与添加收藏弹窗交互一致，带动画）
                 AnimatedVisibility(
                     visible = isCustom,
                     enter = expandVertically(tween(200)) + fadeIn(tween(200)),
@@ -669,7 +625,6 @@ private fun EditCategoryDialog(
     )
 }
 
-/** 长按操作菜单 */
 @Composable
 private fun BookmarkMenuDialog(
     bookmark: BookmarkEntity,
@@ -724,7 +679,6 @@ private fun BookmarkMenuDialog(
     )
 }
 
-/** 平台枚举名 → 展示名 */
 internal fun bookmarkPlatformLabel(platform: String): String = when (platform) {
     "QUARK" -> "夸克网盘"
     "UC" -> "UC网盘"

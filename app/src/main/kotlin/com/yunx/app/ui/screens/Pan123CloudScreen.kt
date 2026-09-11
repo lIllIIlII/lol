@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import com.yunx.app.ui.SnackbarController
@@ -103,13 +85,6 @@ import com.yunx.app.ui.resolve.ShareFileRow
 import com.yunx.app.ui.viewmodel.Pan123CloudUiState
 import com.yunx.app.ui.viewmodel.Pan123CloudViewModel
 
-/**
- * 123 云盘云盘浏览页（参考 139/百度云盘）：
- * - 目录浏览 + 下拉刷新 + 面包屑回退
- * - 长按多选（批量下载/分享/移动/删除）
- * - 文件/文件夹操作菜单（下载/重命名/移动/分享/删除）
- * 认证走 Bearer token（Pan123AccountEntity.accessToken），目录用 fileId（根="0"）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun Pan123CloudScreen(
@@ -121,7 +96,6 @@ fun Pan123CloudScreen(
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
-    // 系统返回键：多选模式下先退出多选；否则子目录返回上一级，根目录返回账号列表
     BackHandler {
         if (viewModel.multiSelectMode) {
             viewModel.exitMultiSelect()
@@ -130,12 +104,9 @@ fun Pan123CloudScreen(
             if (s is Pan123CloudUiState.Loaded && s.pathNames.isNotEmpty()) viewModel.back() else onExit()
         }
     }
-    // 文件列表滚动状态（返回顶部按钮用）
     val listState = rememberLazyListState()
-    // 搜索过滤（本地过滤当前目录文件）
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
-    // 各目录滚动位置记忆：进入文件夹/返回时按目录路径恢复，避免返回后列表回到顶部
     val scrollPositions = remember { mutableStateMapOf<String, Int>() }
     val loadedState = state as? Pan123CloudUiState.Loaded
     val displayFiles = remember(loadedState?.files, searchQuery) {
@@ -166,7 +137,6 @@ fun Pan123CloudScreen(
         }
     }
 
-    // 单文件下载确认弹窗（对齐解析页：展示直链，长按可复制）
     viewModel.downloadLink?.let { link ->
         DownloadLinkDialog(
             link = link,
@@ -213,7 +183,6 @@ fun Pan123CloudScreen(
                 }
 
                 is Pan123CloudUiState.Loaded -> Box(modifier = Modifier.fillMaxSize()) {
-                // 目录加载完成、列表挂载后恢复该目录上次滚动位置（避免 Loading 阶段误触发）
                 val loadedKey = remember(s.pathNames) { s.pathNames.joinToString("/") }
                 LaunchedEffect(loadedKey) {
                     listState.scrollToItem(scrollPositions[loadedKey] ?: 0)
@@ -275,7 +244,6 @@ fun Pan123CloudScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                                 )
                                             }
-                                            // 放大镜：点击展开/收起搜索框
                                             IconButton(onClick = { showSearch = !showSearch }) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Search,
@@ -299,7 +267,6 @@ fun Pan123CloudScreen(
                                             }
                                         )
                                     }
-                                    // 搜索框（点击放大镜展开；与面包屑保持间距 + 展开/收起动画）
                                     AnimatedVisibility(
                                     visible = showSearch && !viewModel.multiSelectMode,
                                         enter = expandVertically(tween(180)) + fadeIn(tween(180)),
@@ -331,7 +298,6 @@ fun Pan123CloudScreen(
                             if (s.pathNames.isNotEmpty()) {
                                 item {
                                     BackToParentItem(onClick = {
-                                        // 记录当前目录滚动位置，返回上级后恢复上级位置
                                         scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                                         viewModel.back()
                                     })
@@ -359,7 +325,6 @@ fun Pan123CloudScreen(
                                         if (viewModel.multiSelectMode) {
                                             viewModel.toggleSelect(file)
                                         } else if (file.isdir) {
-                                            // 记录当前目录滚动位置，进入子目录后恢复子目录位置
                                             scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                                             viewModel.openFolder(file)
                                         } else {
@@ -387,7 +352,6 @@ fun Pan123CloudScreen(
                         }
                     }
 
-                    // 返回顶部按钮（上滑离开顶部后显示；多选模式下上移避开底部批量栏）
                     ScrollToTopButton(
                         listState = listState,
                         modifier = Modifier
@@ -428,7 +392,6 @@ fun Pan123CloudScreen(
         }
     }
 
-    // 文件操作菜单
     if (showActionSheet && viewModel.actionFile != null) {
         Pan123ActionSheet(
             file = viewModel.actionFile!!,
@@ -516,7 +479,6 @@ fun Pan123CloudScreen(
         )
     }
 
-    // 操作执行中加载弹窗（下载文件夹/批量下载显示进度）
     if (viewModel.isOperating) {
         AlertDialog(
             onDismissRequest = { },
@@ -541,7 +503,6 @@ fun Pan123CloudScreen(
     }
 }
 
-/** 123 文件操作菜单：下载/分享/移动/重命名/删除 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Pan123ActionSheet(
@@ -638,7 +599,6 @@ private fun Pan123ActionItem(
     }
 }
 
-/** 重命名弹窗 */
 @Composable
 private fun Pan123RenameDialog(
     file: ShareFile,
@@ -674,7 +634,6 @@ private fun Pan123RenameDialog(
     )
 }
 
-/** 移动目录选择弹窗（独立浏览，不影响主列表） */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Pan123MoveSheet(
@@ -767,7 +726,6 @@ private fun Pan123MoveSheet(
     }
 }
 
-/** 分享设置弹窗（有效期 + 可选提取码） */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Pan123ShareSheet(

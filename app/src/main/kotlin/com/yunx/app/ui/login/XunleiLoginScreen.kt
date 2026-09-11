@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.login
 
 import android.content.Intent
@@ -46,10 +28,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.yunx.app.ui.viewmodel.XunleiAccountViewModel
 
-/**
- * 迅雷网盘登录页：账号+密码登录，触发风控时切换短信验证码流程。
- * 步骤：账号密码 →（需要时）发送短信 → 输入验证码 → 完成。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun XunleiLoginScreen(
@@ -62,7 +40,6 @@ fun XunleiLoginScreen(
     val step = viewModel.loginStep
     val error = viewModel.loginError
     val smsSent = viewModel.smsSent
-    // collectAsState 订阅账号：登录成功后 account 变非空，必触发重组 → 自动关闭登录页
     val account by viewModel.xunleiAccount.collectAsState()
 
     var username by rememberSaveable { mutableStateOf("") }
@@ -71,21 +48,18 @@ fun XunleiLoginScreen(
     var smsCode by rememberSaveable { mutableStateOf("") }
     var isSending by remember { mutableStateOf(false) }
 
-    // 登录错误提示
     LaunchedEffect(error) {
         error?.let {
             SnackbarController.show(it)
             viewModel.consumeLoginError()
         }
     }
-    // 登录成功后自动关闭登录页（短信/密码任一方式成功，账号非空即关闭）
     LaunchedEffect(account) {
         if (account != null) onSaved()
     }
 
     BackHandler { onBack() }
 
-    // 全局 Snackbar 宿主
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
     Scaffold(
@@ -184,7 +158,6 @@ fun XunleiLoginScreen(
                     enabled = smsCode.isNotBlank()
                 ) { Text("验证并登录") }
                 if (!smsSent) {
-                    // 进入界面不会自动发送验证码：主按钮「发送验证码」提示用户主动获取
                     FilledTonalButton(
                         onClick = {
                             viewModel.sendSms(username)
@@ -208,13 +181,9 @@ fun XunleiLoginScreen(
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
 
-                // 短信发不出时的应用内验证兜底（应用内 WebView 承载验证页；核心验证仍走自有短信流）
                 if (step.reviewUrl.isNotBlank()) {
                     TextButton(
                         onClick = {
-                            // 用与登录请求一致的设备签名（deviceSign = div101.xxx）：
-                            // 验证页会把 URL 里的 deviceid 原样当 devicesign 用，
-                            // 必须与 v3/login 的 devicesign 字段一致，否则报"登录信息已过期"
                             onVerify(step.reviewUrl, com.yunx.app.data.network.XunleiDeviceFingerprint.deviceSign())
                         },
                         modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -234,7 +203,6 @@ fun XunleiLoginScreen(
                 }
             }
 
-            // 未设置密码：跳转迅雷官网设置（浏览器打开）
             Spacer(modifier = Modifier.height(8.dp))
             TextButton(
                 onClick = {

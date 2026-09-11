@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import androidx.compose.foundation.Image
@@ -67,10 +49,6 @@ import android.content.Intent
 import android.net.Uri
 import com.yunx.app.R
 
-/**
- * 首次启动引导页：介绍云析（免费）+ 功能特性 + 免责声明。
- * Material3 风格：渐变图标 + 功能列表 + 彩色免费卡 + 免责卡 + 底部主操作。
- */
 @Composable
 fun OnboardingScreen(
     onFinish: () -> Unit,
@@ -89,7 +67,6 @@ fun OnboardingScreen(
                 .padding(start = 24.dp, end = 24.dp, top = 56.dp, bottom = 120.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ---------- 顶部：渐变图标 + 名称 + 标语 ----------
             Box(
                 modifier = Modifier
                     .size(96.dp)
@@ -128,7 +105,6 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(36.dp))
 
-            // ---------- 功能特性 ----------
             OnboardingFeature(
                 icon = Icons.Outlined.Link,
                 title = "一键解析分享链接",
@@ -152,7 +128,6 @@ fun OnboardingScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ---------- 免费卡 ----------
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -196,7 +171,6 @@ fun OnboardingScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ---------- 免责声明 ----------
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -227,13 +201,11 @@ fun OnboardingScreen(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ---------- 开源仓库 ----------
             GitHubCard(context)
 
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // ---------- 底部操作 ----------
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -254,7 +226,6 @@ fun OnboardingScreen(
     }
 }
 
-/** 功能特性条目：圆形图标底 + 标题 + 描述 */
 @Composable
 private fun OnboardingFeature(
     icon: ImageVector,
@@ -299,7 +270,6 @@ private fun OnboardingFeature(
     }
 }
 
-/** 开源仓库入口卡片 */
 @Composable
 private fun GitHubCard(context: android.content.Context) {
     Card(

@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ClipData
@@ -56,10 +38,6 @@ import com.yunx.app.ui.theme.IosTagChip
 import com.yunx.app.util.TextCipher
 import kotlinx.coroutines.delay
 
-/**
- * 安全提示弹窗（首次启动展示一次）。
- * @param onDismissed 弹窗关闭回调（弹窗队列用它继续下一个弹窗）
- */
 @Composable
 fun SafetyNoticeDialog(onDismissed: (() -> Unit)? = null) {
     val context = LocalContext.current
@@ -75,12 +53,10 @@ fun SafetyNoticeDialog(onDismissed: (() -> Unit)? = null) {
     }
 
     if (!visible) {
-        // 已确认过（或直接关闭）：立即通知队列继续
         LaunchedEffect(Unit) { onDismissed?.invoke() }
         return
     }
 
-    // iOS 风格 + 液态玻璃安全提示（首次启动，确认一次后不再弹出）
     IosAlertDialog(
         onDismissRequest = {
             if (seconds <= 0) {
@@ -105,7 +81,6 @@ fun SafetyNoticeDialog(onDismissed: (() -> Unit)? = null) {
         Spacer(Modifier.height(12.dp))
         IosDialogMessage(TextCipher.dBody)
         Spacer(Modifier.height(12.dp))
-        // 官方地址卡片（玻璃内衬）
         androidx.compose.foundation.layout.Box(
             modifier = Modifier
                 .fillMaxWidth()

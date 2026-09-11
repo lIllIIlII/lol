@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.network
 
 import com.yunx.app.data.network.model.DownloadLink
@@ -35,14 +17,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
 
-/**
- * UC Cookie 工具：合并/剥离 __puus、__pus（与夸克共用，对应 AList pkg/cookie）。
- * __puus 约 3 小时过期，是取链接口（/file/download 等）必须携带的有效会话字段。
- */
 object UCCookieUtil {
     private val TRACKED = setOf("__puus", "__pus")
 
-    /** 把响应 Set-Cookie 列表里的最新 __puus/__pus 合并回原 Cookie 串 */
     fun mergeFromSetCookies(original: String, setCookies: List<String>): String {
         var cookie = original
         for (sc in setCookies) {
@@ -55,7 +32,6 @@ object UCCookieUtil {
         return cookie
     }
 
-    /** 去掉 __puus，用于触发服务端重新下发（AList refreshPuus） */
     fun withoutPuus(cookie: String): String =
         cookie.split(";").map { it.trim() }
             .filter { !it.startsWith("__puus=") }
@@ -70,25 +46,14 @@ object UCCookieUtil {
     }
 }
 
-/**
- * UC 网盘 API 封装（OkHttp）：账号验证 + 分享解析 + 下载直链。
- * 与夸克 API 结构一致，仅域名/UA/pr 参数不同。
- */
 class UCApi(
     private val clientProvider: () -> OkHttpClient = { HttpClients.apiClient() }
 ) {
-    /** 每次请求动态获取全局客户端（忽略 SSL 开关切换即时生效） */
     private val client get() = clientProvider()
 
-    /**
-     * Cookie 回写接收器（推荐由 UCAccountRepository 注入并落库）：
-     * 每次响应把 Set-Cookie 合并后的最新 Cookie 回调，保持 __puus/__pus 始终新鲜。
-     */
     var cookieSink: ((String) -> Unit)? = null
 
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
-
-    // ---------- 账号 ----------
 
     suspend fun fetchNickname(cookie: String): String? = withContext(Dispatchers.IO) {
         val request = Request.Builder()
@@ -111,10 +76,7 @@ class UCApi(
         }.getOrNull()
     }
 
-    // ---------- 分享解析 ----------
-
     suspend fun getShareToken(shareId: String, pwd: String?, cookie: String): ShareToken? = withContext(Dispatchers.IO) {
-        // 官方抓包：body 为 pwd_id/passcode/share_for_transfer（用于转存/下载场景）
         val body = JSONObject()
             .put("pwd_id", shareId)
             .put("passcode", pwd ?: "")
@@ -130,15 +92,6 @@ class UCApi(
         }
     }
 
-    /**
-     * 获取分享文件列表（sharepage/v2/detail，UC 官方为 POST + JSON body）。
-     * 官方抓包：body 携带 pwd_id/passcode/page/size/fetch_banner 等，不携带 stoken；
-     * 进入子目录时 body 追加 pdir_fid。
-     */
-    /**
-     * 获取转存分享文件列表（transfer_share/detail，官方下载流程）。
-     * GET + query 携带 stoken → 返回的 share_fid_token 与 stoken 绑定，download 才能通过校验。
-     */
     suspend fun getTransferShareFiles(
         shareId: String,
         stoken: String,
@@ -170,7 +123,6 @@ class UCApi(
             .get()
             .build()
         parseData(request) { data ->
-            // 兼容 data.list 或 data.detail_info.list 两种结构
             val array = data.optJSONArray("list")
                 ?: data.optJSONObject("detail_info")?.optJSONArray("list")
                 ?: JSONArray()
@@ -214,7 +166,6 @@ class UCApi(
             .put("banner_platform", "other")
             .put("web_platform", "windows")
             .put("fetch_error_background", 1)
-        // 子目录时追加 pdir_fid（根目录官方不传）
         if (pdirFid.isNotBlank() && pdirFid != UCConstants.DEFAULT_PDIR_FID) {
             body.put("pdir_fid", pdirFid)
         }
@@ -228,7 +179,6 @@ class UCApi(
             .post(body.toString().toRequestBody(jsonMediaType))
             .build()
         parseData(request) { data ->
-            // UC v2/detail：文件列表在 data.detail_info.list（不是 data.list）
             val detailInfo = data.optJSONObject("detail_info")
             val array = detailInfo?.optJSONArray("list") ?: JSONArray()
             buildList {
@@ -249,8 +199,6 @@ class UCApi(
             }
         }
     }
-
-    // ---------- 个人网盘 / 转存 ----------
 
     suspend fun getFileList(
         pdirFid: String,
@@ -339,13 +287,6 @@ class UCApi(
         null
     }
 
-    // ---------- 下载直链 ----------
-
-    /**
-     * 刷新会话 Cookie（对应 AList refreshPuus，修复与夸克同源的 #830 类缺陷）：
-     * 剥离 __puus 后请求任意接口（/config），服务端会在 Set-Cookie 中重新下发 __puus/__pus。
-     * @return 合并了最新 __puus/__pus 的 Cookie；失败返回 null（调用方应回退原 Cookie）。
-     */
     suspend fun refreshSession(cookie: String): String? = withContext(Dispatchers.IO) {
         val request = Request.Builder()
             .url(UCConstants.CONFIG_URL)
@@ -363,11 +304,6 @@ class UCApi(
         }.getOrNull()
     }
 
-    /**
-     * UC 官方下载流程（抓包）：不需要先转存！
-     * POST file/download?entry=ft&fr=pc&pr=UCBrowser
-     * body: {"fids":[分享fid],"pwd_id":短码,"stoken":token接口返回,"fids_token":[分享fid_token]}
-     */
     suspend fun getShareDownloadLink(
         fid: String,
         fidToken: String,
@@ -428,9 +364,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
         )
     }
 
-    // ---------- 云盘文件管理（UC 网盘功能） ----------
-
-    /** 网盘空间详情（/1/clouddrive/member：total_capacity / use_capacity，CLOUD_UA） */
     suspend fun getQuota(cookie: String): QuotaInfo? = withContext(Dispatchers.IO) {
         val url = "https://pc-api.uc.cn/1/clouddrive/member?pr=UCBrowser&fr=pc&fetch_subscribe=true&_ch=home"
         runCatching {
@@ -452,7 +385,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
         }.getOrNull()
     }
 
-    /** 云盘下载直链（抓包：个人云盘文件用 ?pr=UCBrowser&fr=pc&sys=win32&ve=1.6.1，非 entry=ft 分享通道） */
     suspend fun cloudGetDownloadLink(fid: String, cookie: String): DownloadLink? = withContext(Dispatchers.IO) {
         val body = JSONObject().put("fids", JSONArray().put(fid)).toString()
         val request = Request.Builder()
@@ -488,12 +420,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
         )
     }
 
-        /**
-     * 分享视频预览（原画直链，绕过非会员视频下载被换成宣传片的问题）。
-     * GET share/sharepage/video_preview？pwd_id/stoken/fid/fid_token →
-     * data.play_info.url（原画 OSS 直链，走播放回调 checkplay 不换片）+ size（原画大小，可校验）。
-     * 仅对分享态视频有意义；链接约 3 小时有效（x-ttl=10800）。
-     */
     suspend fun getVideoPreview(
         pwdId: String,
         stoken: String,
@@ -534,12 +460,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
         }.getOrNull()
     }
 
-    /**
-     * UC 转码播放流（绕过非会员视频下载被换成宣传片的问题）。
-     * POST file/v2/play/project → data.video_list[].video_info.url（m3u8/fmp4）。
-     * 仅对视频有意义；返回首个非空播放地址 + 其清晰度。
-     * 先试带 pr/fr 的主路径；失败则用裸路径重试（Alist getTranscodingLink 方式，对 UC 也可通）。
-     */
     suspend fun getPlayLink(fid: String, cookie: String): PlayLink? = withContext(Dispatchers.IO) {
         playProject(UCConstants.PLAY_URL, fid, cookie)
             ?: playProject("${UCConstants.API_BASE}/1/clouddrive/file/v2/play/project", fid, cookie)
@@ -579,7 +499,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
         }.getOrNull()
     }
 
-    /** 删除文件（抓包：action_type=2 + filelist + exclude_fids）；返回 task_id */
     suspend fun deleteFile(fid: String, cookie: String): String? =
         withContext(Dispatchers.IO) {
             val body = JSONObject()
@@ -591,9 +510,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
             parseData(request) { data -> data.optString("task_id").takeIf { it.isNotBlank() } }
         }
 
-    /** 云盘文件列表（抓包 /1/clouddrive/file/sort，pdir_fid=0 根目录）
-     *  自动翻页：单页满 size 继续，封顶 100 页防异常死循环；默认单页 100（接口支持）。
-     */
     suspend fun listCloudFiles(
         pdirFid: String,
         cookie: String,
@@ -640,14 +556,12 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
                 }
             }
             all += files
-            // 本页未满 size → 已是最后一页；封顶 100 页防止异常死循环
             if (files.size < size || p >= 100) break
             p++
         }
         all.ifEmpty { null }
     }
 
-    /** 重命名（抓包：POST file/rename） */
     suspend fun renameFile(fid: String, newName: String, cookie: String): Boolean =
         withContext(Dispatchers.IO) {
             val body = JSONObject()
@@ -662,7 +576,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
             }.getOrDefault(false)
         }
 
-    /** 移动（抓包：action_type=1 + to_pdir_fid + filelist）；返回 task_id */
     suspend fun moveFile(fid: String, toPdirFid: String, cookie: String): String? =
         withContext(Dispatchers.IO) {
             val body = JSONObject()
@@ -675,8 +588,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
             parseData(request) { data -> data.optString("task_id").takeIf { it.isNotBlank() } }
         }
 
-    /** 创建分享（抓包：POST /1/clouddrive/share，url_type 1=无提取码 2=带提取码，expired_type 1永久/2一天/3七天/4三十天）。
- * 注意：分享创建是**异步任务**——响应只有 data.task_id，必须轮询 /1/clouddrive/task 直到完成拿到 share_id。 */
     suspend fun createShare(
         fidList: List<String>,
         title: String,
@@ -694,15 +605,12 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
             .apply { if (passcode.isNotBlank()) put("passcode", passcode) }
             .toString()
         val request = postJson(UCConstants.SHARE_CREATE_URL, cookie, body)
-        // 1) 创建分享 → task_id（异步，须轮询等待完成）
         val taskId = parseData(request) { data ->
             data.optString("task_id").takeIf { it.isNotBlank() }
         } ?: return@withContext null
-        // 2) 轮询 task 直到完成，取 share_id（官方响应 status=2 + share_id）
         pollShareTask(taskId, cookie)
     }
 
-    /** 轮询分享创建任务（GET /1/clouddrive/task），返回 share_id；超时返回 null */
     private suspend fun pollShareTask(taskId: String, cookie: String): String? =
         withContext(Dispatchers.IO) {
             val url = "${UCConstants.TASK_URL}&task_id=${URLEncoder.encode(taskId, "UTF-8")}&retry_index=0"
@@ -723,7 +631,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
             null
         }
 
-    /** 查询分享信息（抓包：POST share/password body={share_id} → 链接/提取码/标题） */
     suspend fun getShareInfo(shareId: String, cookie: String): ShareInfo? = withContext(Dispatchers.IO) {
         val body = JSONObject().put("share_id", shareId).toString()
         val request = postJson(UCConstants.SHARE_INFO_URL, cookie, body)
@@ -737,7 +644,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
             )
         }
     }
-    // ---------- 请求构造与响应解析 ----------
 
     private fun get(url: String, cookie: String): Request =
         Request.Builder()
@@ -771,7 +677,6 @@ suspend fun getDownloadLink(fid: String, cookie: String): DownloadLink? = withCo
         return parser(json.optJSONObject("data") ?: throw QuarkApiException("响应缺少 data"))
     }
 
-    /** 从响应 Set-Cookie 合并 __puus/__pus 回原 Cookie 并回调 cookieSink（保持会话新鲜，对齐 AList requestWithCookie） */
     private fun mergeCookieFromResponse(request: Request, response: okhttp3.Response) {
         val setCookies = response.headers("Set-Cookie")
         if (setCookies.isEmpty()) return

@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.util
 
 import android.content.ContentValues
@@ -39,20 +21,12 @@ import java.util.ArrayDeque
 import java.util.Date
 import java.util.Locale
 
-/**
- * 日志导出工具：
- * 1. 头部写入应用 / 设备信息；
- * 2. `logcat -d -v time --pid=<当前进程>` dump 当前应用的运行日志（按包名进程过滤）；
- * 3. 合并写入 cacheDir/logs/ 下文本文件，通过 FileProvider + 系统分享导出。
- */
 object LogExporter {
 
     private const val EXPORT_DIR = "logs"
 
-    /** 单缓冲区最多保留的行数（防止超大 buffer 导致内存/文件过大） */
     private const val MAX_LINES = 30000
 
-    /** 生成日志文件（cacheDir 内）并返回；失败返回 null（不抛异常） */
     fun export(context: Context): File? = runCatching {
         val dir = File(context.cacheDir, EXPORT_DIR).apply { mkdirs() }
         val out = File(dir, "yunx_log_${timestamp()}.txt")
@@ -60,12 +34,6 @@ object LogExporter {
         out
     }.getOrNull()
 
-    /**
-     * 直接保存日志到公共「下载」目录；成功返回 true。
-     * - Android 10+（API 29+）：MediaStore.Downloads 直写，无需任何权限；
-     * - Android 9-（API 21-28）：写公共 Download 目录（需 WRITE_EXTERNAL_STORAGE）。
-     * 不经过 FileProvider / 跨进程分享，彻底规避「保存到下载」时系统 UI 读取 uri 被拒的问题。
-     */
     fun saveToDownloads(context: Context): Boolean = runCatching {
         val fileName = "yunx_log_${timestamp()}.txt"
         val ok = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -89,10 +57,8 @@ object LogExporter {
         ok
     }.getOrDefault(false)
 
-    /** 把头部信息 + logcat 运行/崩溃日志写入指定输出流 */
     private fun exportTo(context: Context, output: OutputStream): Boolean = runCatching {
         OutputStreamWriter(output, StandardCharsets.UTF_8).use { writer ->
-            // ---------- 头部：应用与设备信息 ----------
             val pkg = context.packageManager.getPackageInfo(context.packageName, 0)
             writer.write("吸析At 日志导出\n")
             writer.write("导出时间：${now()}\n")
@@ -101,7 +67,6 @@ object LogExporter {
             writer.write("系统：Android ${Build.VERSION.RELEASE}（SDK ${Build.VERSION.SDK_INT}）\n")
             writer.write("\n")
 
-            // ---------- 运行日志：当前应用进程（logcat 按 pid 过滤，只保留本应用） ----------
             writer.write("========== 运行日志（logcat -d -v time --pid=${Process.myPid()}）==========\n")
             dumpLogcat(
                 writer,
@@ -111,13 +76,11 @@ object LogExporter {
         true
     }.getOrDefault(false)
 
-    /** 清空 logcat 缓冲（便于复现后只导出本次操作日志） */
     fun clearLogcat(): Boolean = runCatching {
         ProcessBuilder("logcat", "-c").start().waitFor()
         true
     }.getOrDefault(false)
 
-    /** 执行 logcat 命令并写入 writer（仅保留最近 MAX_LINES 行） */
     private fun dumpLogcat(writer: OutputStreamWriter, command: List<String>) {
         var process: java.lang.Process? = null
         try {
@@ -125,7 +88,6 @@ object LogExporter {
             val reader =
                 BufferedReader(InputStreamReader(process.inputStream, StandardCharsets.UTF_8))
 
-            // 环形缓冲：只保留最近 MAX_LINES 行
             val lines = ArrayDeque<String>()
             var line: String? = reader.readLine()
             while (line != null) {
@@ -150,7 +112,6 @@ object LogExporter {
         }
     }
 
-    /** 通过系统分享导出日志文件；成功返回 true */
     fun share(context: Context, file: File): Boolean = runCatching {
         val uri = FileProvider.getUriForFile(
             context,
@@ -163,8 +124,6 @@ object LogExporter {
             putExtra(Intent.EXTRA_SUBJECT, file.name)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        // chooser 外层也带上读权限 flag：部分接收者（文件管理器/系统 UI）通过
-        // 自己的 Intent 读取 uri 时需要授权，否则报 Permission Denial
         val chooser = Intent.createChooser(intent, "分享日志").apply {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

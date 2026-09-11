@@ -1,11 +1,3 @@
-/*
- * 吸析At - 城通网盘文件分享解析仓库。
- *
- * 城通为「单文件直链」型网盘：解析即列出唯一文件，下载时取一次性直链。
- * stoken 打包 {k: 链接形态, i: fileid, p: 密码, h: 分享域名}；
- * /dir/ 文件夹分享暂不支持（提示浏览器打开）。
- */
-
 package com.yunx.app.data.repository
 
 import com.yunx.app.data.network.CtfileApi
@@ -29,7 +21,6 @@ class CtfileResolveRepository : ShareResolveRepository {
         val parsed = ShareLinkParser.parse(link)
             ?: return Result.failure(IllegalArgumentException("无法识别城通网盘链接"))
         return runCatching {
-            // shareId 形态 "f:235978-1320342970-0dad31"（parser 归一化打包）
             val raw = parsed.shareId
             val kind = raw.substringBefore(':')
             val fileid = raw.substringAfter(':')
@@ -89,7 +80,6 @@ class CtfileResolveRepository : ShareResolveRepository {
         val (kind, fileid, pwd, refHost) = unpack(session.stoken)
         return runCatching {
             if (kind.isBlank()) throw IllegalStateException("会话已失效，请重新解析")
-            // 直链参数有时效性：下载时重新 getfile 获取最新 file_chk/verifycode
             val info = CtfileApi.fetchFileInfo(fileid, pwd, refHost)
             val url = CtfileApi.fetchDirectLink(info)
             DownloadLink(

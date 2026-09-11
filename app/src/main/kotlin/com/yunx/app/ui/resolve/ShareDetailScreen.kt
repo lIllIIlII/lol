@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.resolve
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -117,52 +99,35 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-/** 百度非会员限速阈值：>300MB 提示 */
 private const val BAIDU_LIMIT_BYTES = 300L * 1024 * 1024
 
-/**
- * 分享详情页：展示分享标题与文件列表，支持进入文件夹、点击文件获取下载直链。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShareDetailScreen(
     session: ShareSession,
     files: List<ShareFile>,
     viewModel: ResolveViewModel,
-    /** 夸克云盘浏览 ViewModel（转存目录选择用；与网盘页同一实例） */
     quarkCloudViewModel: QuarkCloudViewModel,
-    /** 迅雷网盘云盘浏览 ViewModel（迅雷分享转存目录选择用） */
     xunleiCloudViewModel: XunleiCloudViewModel,
-    /** 百度网盘云盘浏览 ViewModel（百度分享转存目录选择用） */
     baiduCloudViewModel: BaiduCloudViewModel,
-    /** 139 网盘云盘浏览 ViewModel（139 分享转存目录选择用） */
     c139CloudViewModel: C139CloudViewModel,
-    /** UC 网盘云盘浏览 ViewModel（UC 分享转存目录选择用） */
     ucCloudViewModel: UCCoudViewModel,
-    /** 123 云盘浏览 ViewModel（123 分享转存目录选择用） */
     pan123CloudViewModel: Pan123CloudViewModel,
     scrollBehavior: TopAppBarScrollBehavior,
-    /** 文件列表滚动状态（由上层持有，跨目录切换保留） */
     listState: LazyListState,
-    /** 各目录滚动位置记忆（key = 目录路径；由上层持有，跨目录切换保留） */
     scrollPositions: MutableMap<String, Int>,
-    /** 顶部左上角返回：退出文件页回到输入页（输入框内容保留） */
     onExit: () -> Unit,
-    /** 列表「返回上一级」：子目录回上级，根目录回输入页 */
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val pathNames = viewModel.pathNames
-    // 百度 >300MB 限速提示（解析页百度分享下载）
     val context = LocalContext.current
     val baiduSettings = remember { SettingsRepository(context) }
     var baiduLimitDismissed by remember { mutableStateOf(baiduSettings.baiduLimitHintDismissed) }
     var showBaiduLimitDialog by remember { mutableStateOf(false) }
     var pendingBaiduAction by remember { mutableStateOf<(() -> Unit)?>(null) }
-    // 「添加至收藏」弹窗
     var showAddBookmark by remember { mutableStateOf(false) }
 
-    /** 百度分享下载前检查：>300MB 且未忽略时弹提示，确认后执行 */
     fun checkBaiduLimit(file: ShareFile, proceed: () -> Unit) {
         if (viewModel.isBaidu && !baiduLimitDismissed && file.fsize > BAIDU_LIMIT_BYTES) {
             pendingBaiduAction = proceed
@@ -171,25 +136,19 @@ fun ShareDetailScreen(
             proceed()
         }
     }
-    // 系统返回键：多选模式下先退出多选，否则返回上一级目录 / 根目录回输入页
     BackHandler {
         if (viewModel.multiSelectMode) viewModel.exitMultiSelect() else onBack()
     }
-    // 文件列表滚动状态（由上层 ResolveScreen 持有：进入文件夹/返回时列表重建也不会丢失）
-    // 搜索过滤（本地过滤当前目录文件）
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showSearch by rememberSaveable { mutableStateOf(false) }
     val displayFiles = remember(files, searchQuery) {
         val q = searchQuery.trim()
         if (q.isEmpty()) files else files.filter { it.fname.contains(q, ignoreCase = true) }
     }
-    // 各目录滚动位置记忆：进入文件夹/返回时按目录路径恢复，避免返回后列表回到顶部
     val currentDirKey = remember(pathNames) { pathNames.joinToString("/") }
     LaunchedEffect(currentDirKey) {
-        // 恢复该目录上次滚动位置；无记录（如首次进入）则回到顶部
         listState.scrollToItem(scrollPositions[currentDirKey] ?: 0)
     }
-    // 多选模式：底部批量操作栏 + 处理中弹窗
     Box(modifier = modifier.fillMaxSize()) {
         LazyColumn(
             state = listState,
@@ -206,7 +165,6 @@ fun ShareDetailScreen(
                 Column {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (viewModel.multiSelectMode) {
-                            // 多选模式：取消选择
                             IconButton(onClick = { viewModel.exitMultiSelect() }) {
                                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "取消选择")
                             }
@@ -264,7 +222,6 @@ fun ShareDetailScreen(
                             }
                         }
                     }
-                    // 可点击面包屑（多选模式下隐藏）
                     if (!viewModel.multiSelectMode) {
                         CrumbBar(
                             rootTitle = session.title.ifBlank { "分享内容" },
@@ -275,7 +232,6 @@ fun ShareDetailScreen(
                             }
                         )
                     }
-                    // 搜索框（点击放大镜展开；与面包屑保持间距 + 展开/收起动画）
                     AnimatedVisibility(
                         visible = showSearch && !viewModel.multiSelectMode,
                         enter = expandVertically(tween(180)) + fadeIn(tween(180)),
@@ -304,11 +260,9 @@ fun ShareDetailScreen(
                 }
             }
 
-            // 返回上一级（单独列表项；根目录时不显示）
             if (pathNames.isNotEmpty()) {
                 item {
                     BackToParentItem(onClick = {
-                        // 记录当前目录滚动位置，返回上级后恢复上级位置
                         scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                         onBack()
                     })
@@ -336,14 +290,12 @@ fun ShareDetailScreen(
                         if (viewModel.multiSelectMode) {
                             viewModel.toggleSelect(file)
                         } else if (file.isdir) {
-                            // 记录当前目录滚动位置，进入子目录后恢复子目录位置
                             scrollPositions[currentDirKey] = listState.firstVisibleItemIndex
                             viewModel.openFolder(file)
                         } else {
                             checkBaiduLimit(file) { viewModel.fetchDownloadLink(file) }
                         }
                     },
-                    // 仅夸克分享显示转存按钮（多选时隐藏）
                     onSave = if (!viewModel.multiSelectMode && viewModel.canSave) {
                         { viewModel.requestSave(file) }
                     } else {
@@ -360,7 +312,6 @@ fun ShareDetailScreen(
             }
         }
 
-        // 返回顶部按钮（上滑离开顶部后显示；多选模式下上移避开底部批量栏）
         ScrollToTopButton(
             listState = listState,
             modifier = Modifier
@@ -371,12 +322,10 @@ fun ShareDetailScreen(
                 )
         )
 
-        // 多选模式：底部批量操作栏（转存/下载）
         if (viewModel.multiSelectMode) {
             MultiSelectBar(
                 count = viewModel.selected.size,
                 actions = buildList {
-                    // 转存仅夸克分享支持
                     if (viewModel.canSave) {
                         add(
                             MultiSelectAction("转存", Icons.Outlined.SaveAlt, MaterialTheme.colorScheme.primary) {
@@ -386,7 +335,6 @@ fun ShareDetailScreen(
                     }
                     add(
                         MultiSelectAction("下载", Icons.Outlined.Download, MaterialTheme.colorScheme.primary) {
-                            // 百度批量下载：选中项含 >300MB 文件时先弹限速提示
                             val hasBig = viewModel.selected.any { it.fsize > BAIDU_LIMIT_BYTES }
                             if (viewModel.isBaidu && !baiduLimitDismissed && hasBig) {
                                 pendingBaiduAction = { viewModel.batchDownload() }
@@ -401,7 +349,6 @@ fun ShareDetailScreen(
         }
     }
 
-    // 百度 >300MB 限速提示弹窗（解析页百度分享下载，可勾选不再显示）
     if (showBaiduLimitDialog) {
         var neverShow by remember { mutableStateOf(baiduLimitDismissed) }
         AlertDialog(
@@ -437,7 +384,6 @@ fun ShareDetailScreen(
         )
     }
 
-    // 批量处理中：加载弹窗（批量下载显示获取进度，如 "正在获取下载链接 2/5"；可中断）
     if (viewModel.isBatchWorking) {
         AlertDialog(
             onDismissRequest = { },
@@ -465,7 +411,6 @@ fun ShareDetailScreen(
         )
     }
 
-    // 添加至收藏弹窗（当前分享链接，支持自定义标题与分类）
     if (showAddBookmark) {
         AddToBookmarkDialog(
             title = session.title.ifBlank { "分享内容" },
@@ -479,7 +424,6 @@ fun ShareDetailScreen(
         )
     }
 
-    // 转存弹窗：浏览网盘目录并保存（单文件转存；夸克/迅雷/百度按平台选目录选择器）
     if (viewModel.saveTarget != null) {
         when {
             viewModel.isSaveXunlei -> XunleiSaveSheet(
@@ -513,6 +457,43 @@ fun ShareDetailScreen(
                 onDismiss = { viewModel.dismissSave() }
             )
         }
+    }
+
+    viewModel.saveDownloadAsk?.let { prompt ->
+        AlertDialog(
+            onDismissRequest = { if (!viewModel.isSavedFileLoading) viewModel.dismissSaveDownload() },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.confirmSaveDownload() },
+                    enabled = !viewModel.isSavedFileLoading
+                ) { Text("立即下载") }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { viewModel.dismissSaveDownload() },
+                    enabled = !viewModel.isSavedFileLoading
+                ) { Text("暂不") }
+            },
+            icon = {
+                if (viewModel.isSavedFileLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.Download,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            title = { Text("已转存到${prompt.platformLabel}") },
+            text = {
+                Text(
+                    if (viewModel.isSavedFileLoading) "正在获取下载链接…"
+                    else "「${prompt.fileName}」已保存到你的${prompt.platformLabel}，是否立即下载？",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        )
     }
 }
 
@@ -549,11 +530,6 @@ internal fun BackToParentItem(onClick: () -> Unit) {
     }
 }
 
-/**
- * 可点击面包屑：根标题 > 目录1 > 目录2。
- * 非当前层可点击回退到对应目录；当前层高亮（文件夹图标 + 主题色）。
- * 横向滚动并自动定位到当前层。
- */
 @Composable
 internal fun CrumbBar(
     rootTitle: String,
@@ -579,7 +555,6 @@ internal fun CrumbBar(
         crumbs.forEachIndexed { i, name ->
             val isLast = i == crumbs.size - 1
             if (!isLast) {
-                // 可点击层级：点击回退到该目录
                 Text(
                     text = name,
                     style = MaterialTheme.typography.labelLarge,
@@ -596,7 +571,6 @@ internal fun CrumbBar(
                     tint = MaterialTheme.colorScheme.outline
                 )
             } else {
-                // 当前层：高亮 + 文件夹图标（不可点）
                 Icon(
                     imageVector = Icons.Outlined.FolderOpen,
                     contentDescription = null,
@@ -622,17 +596,11 @@ internal fun CrumbBar(
 internal fun ShareFileRow(
     file: ShareFile,
     onClick: () -> Unit,
-    /** 非空时行尾显示「转存」按钮 */
     onSave: (() -> Unit)? = null,
-    /** 非空时行尾显示「更多」按钮（打开文件操作菜单） */
     onMore: (() -> Unit)? = null,
-    /** 长按进入多选（多选模式下为 null） */
     onLongClick: (() -> Unit)? = null,
-    /** 多选模式：是否选中 */
     selected: Boolean = false,
-    /** 是否显示行首复选框（仅多选模式列表传 true；移动/转存等选择器不显示） */
     showCheckbox: Boolean = false,
-    /** 列表项动画等（调用方传入 Modifier.animateItem()） */
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -657,7 +625,6 @@ internal fun ShareFileRow(
                 .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 多选模式：行首复选框（仅多选列表显示）
             if (showCheckbox) {
                 Checkbox(
                     checked = selected,
@@ -690,7 +657,6 @@ internal fun ShareFileRow(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                // 文件名过长时滚动播放显示
                 Text(
                     text = file.fname,
                     style = MaterialTheme.typography.bodyLarge,
@@ -698,7 +664,6 @@ internal fun ShareFileRow(
                     modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE)
                 )
                 Spacer(modifier = Modifier.height(2.dp))
-                // 副标题行：文件夹/大小 + 修改时间（同一行展示）
                 Text(
                     text = buildString {
                         append(if (file.isdir) "文件夹" else formatSize(file.fsize))
@@ -755,20 +720,10 @@ internal fun formatSize(bytes: Long): String {
     return String.format("%.1f %s", value, units[i])
 }
 
-/**
- * 各网盘返回的时间字段格式不统一，统一解析为毫秒时间戳；无法识别返回 null。
- * 已覆盖：
- * - 夸克 / UC：`updated_at` / `modify_time` —— 13 位毫秒时间戳
- * - 百度：`server_mtime` —— 10 位秒级时间戳
- * - 迅雷：`modified_time` —— ISO 8601（带时区偏移或 Z）
- * - 139：云盘 `updatedAt` ISO 8601；分享 `udTime`/`ctTime` 可能为 yyyyMMddHHmmss
- * - 123：`UpdateAt` —— ISO 8601 或 "yyyy-MM-dd HH:mm:ss"
- */
 private fun parseModifyTimeMillis(raw: String): Long? {
     val s = raw.trim()
     if (s.isEmpty()) return null
 
-    // 1) 纯数字：时间戳（13 位毫秒 / 10 位秒）或紧凑日期串 yyyyMMddHHmmss
     if (s.all(Char::isDigit)) {
         return when (s.length) {
             13 -> s.toLongOrNull()
@@ -778,13 +733,10 @@ private fun parseModifyTimeMillis(raw: String): Long? {
                     isLenient = false
                 }.parse(s)?.time
             }.getOrNull()
-            // 其余长度按数值大小推断秒/毫秒（阈值≈1973 年的毫秒值）
             else -> s.toLongOrNull()?.let { if (it > 100_000_000_000L) it else it * 1000L }
         }
     }
 
-    // 2) 文本时间：先剥离时区后缀，再按「长 → 短」模式尝试解析
-    //    （不用 SimpleDateFormat 的 XXX 模式，它要求 API 24+）
     var work = s.replace('T', ' ')
     var tz: TimeZone? = null
     if (work.endsWith("Z", ignoreCase = true)) {
@@ -797,7 +749,6 @@ private fun parseModifyTimeMillis(raw: String): Long? {
             work = work.removeRange(m.range)
         }
     }
-    // 去掉毫秒小数部分
     val body = work.trim().substringBefore('.')
     val zone: TimeZone? = tz
 
@@ -817,10 +768,6 @@ private fun parseModifyTimeMillis(raw: String): Long? {
     return null
 }
 
-/**
- * 文件修改时间展示（列表副标题用，尽量紧凑）：
- * 今年内 → "MM-dd HH:mm"；跨年 → "yyyy-MM-dd"；无法解析 → 空串（调用方据此隐藏）。
- */
 internal fun formatModifyTime(raw: String): String {
     val millis = parseModifyTimeMillis(raw) ?: return ""
     if (millis <= 0) return ""

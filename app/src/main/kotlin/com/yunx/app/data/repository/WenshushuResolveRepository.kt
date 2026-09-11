@@ -1,11 +1,3 @@
-/*
- * 吸析At - 文叔叔（wenshushu.cn）分享解析仓库。
- *
- * stoken 打包 {t: tid, b: bid, p: 根 pid, w: 密码}；
- * 目录浏览：根 → nlist(bid, 根pid)；子目录 → nlist(bid, folderFid)；
- * 直链：dl/sign(fileFid)（匿名 token 由 API 层缓存管理）。
- */
-
 package com.yunx.app.data.repository
 
 import com.yunx.app.data.network.ShareLinkParser

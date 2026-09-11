@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.login
 
 import android.graphics.Bitmap
@@ -70,13 +52,6 @@ import com.yunx.app.data.network.QuarkConstants
 import com.yunx.app.ui.viewmodel.QuarkAccountViewModel
 import kotlinx.coroutines.launch
 
-/**
- * 夸克网盘登录页：
- * - 顶部标题栏：返回按钮 + 手动输入 Cookie 图标 + 保存按钮（登录完成后点击，提取 Cookie 并校验保存）
- * - 主体：WebView 加载夸克网盘官网，由用户手动登录
- * - 自动登录检测：网页内登录完成后自动提取 Cookie 并登录（「保存」按钮保留作手动兜底）
- * - 进入页面时弹登录教程
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuarkLoginScreen(
@@ -89,12 +64,10 @@ fun QuarkLoginScreen(
     var isSaving by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // 手动输入 Cookie 弹窗状态
     var showCookieDialog by remember { mutableStateOf(false) }
     var cookieInput by remember { mutableStateOf("") }
     var isSavingManual by remember { mutableStateOf(false) }
 
-    // 登录教程弹窗：进入页面即展示一次
     var showTutorial by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { showTutorial = true }
 
@@ -103,11 +76,11 @@ fun QuarkLoginScreen(
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
 
-            settings.setSupportZoom(true)          // 支持缩放
-            settings.builtInZoomControls = true    // 启用内置缩放机制（双指缩放）
-            settings.displayZoomControls = false   // 隐藏屏幕上的缩放按钮（只保留手势）
+            settings.setSupportZoom(true)
+            settings.builtInZoomControls = true
+            settings.displayZoomControls = false
 
-            settings.useWideViewPort = true        // 支持 viewport 标签
+            settings.useWideViewPort = true
             settings.loadWithOverviewMode = true
 
             settings.userAgentString = QuarkConstants.USER_AGENT
@@ -125,7 +98,6 @@ fun QuarkLoginScreen(
         }
     }
 
-    // 自动登录检测：网页内登录完成（Cookie 出现并通过接口校验）即自动保存登录；右上角「保存」保留作手动兜底
     rememberWebLoginAutoDetect(
         sampleCredential = { CookieManager.getInstance().getCookie(QuarkConstants.COOKIE_DOMAIN).orEmpty() },
         isPlausible = { QuarkConstants.isValidCookie(it) },
@@ -135,15 +107,12 @@ fun QuarkLoginScreen(
         onAutoSaved = onSaved
     )
 
-    // 页面销毁时释放 WebView
     DisposableEffect(Unit) {
         onDispose { webView.destroy() }
     }
 
-    // 系统返回键 → 返回主页（保存中禁用）
     BackHandler(enabled = !isSaving && !isSavingManual) { onBack() }
 
-    // 全局 Snackbar 宿主
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
     Scaffold(
@@ -157,7 +126,6 @@ fun QuarkLoginScreen(
                     }
                 },
                 actions = {
-                    // 手动输入 Cookie
                     IconButton(
                         onClick = { if (!isSaving && !isSavingManual) showCookieDialog = true },
                         enabled = !isSaving && !isSavingManual
@@ -218,7 +186,6 @@ fun QuarkLoginScreen(
         }
     }
 
-    // 登录教程弹窗
     if (showTutorial) {
         AlertDialog(
             onDismissRequest = { showTutorial = false },
@@ -251,7 +218,6 @@ fun QuarkLoginScreen(
         )
     }
 
-    // 手动输入 Cookie 弹窗
     if (showCookieDialog) {
         AlertDialog(
             onDismissRequest = { if (!isSavingManual) showCookieDialog = false },

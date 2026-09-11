@@ -1,7 +1,3 @@
-/*
- * 吸析At - 奶牛快传分享解析仓库。
- */
-
 package com.yunx.app.data.repository
 
 import com.yunx.app.data.network.CowTransferApi

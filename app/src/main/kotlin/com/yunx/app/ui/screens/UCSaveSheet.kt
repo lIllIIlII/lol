@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
@@ -69,10 +51,6 @@ import com.yunx.app.ui.viewmodel.ResolveViewModel
 import com.yunx.app.ui.viewmodel.UCCloudUiState
 import com.yunx.app.ui.viewmodel.UCCoudViewModel
 
-/**
- * 转存到 UC 网盘弹窗：浏览 UC 个人网盘目录（只进文件夹），确认后转存到当前目录。
- * 复用 UCCoudViewModel 做目录浏览（与网盘页同一实例）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UCSaveSheet(
@@ -88,7 +66,6 @@ fun UCSaveSheet(
     LaunchedEffect(Unit) {
         cloudViewModel.loadRoot()
     }
-// 转存结果提示
     LaunchedEffect(message) {
         if (message != null) {
             SnackbarController.show(message)
@@ -96,7 +73,6 @@ fun UCSaveSheet(
         }
     }
 
-    // ModalBottomSheet 为独立窗口，需自带 Snackbar 宿主
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -151,13 +127,11 @@ fun UCSaveSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // 返回上一级：固定在目录区上方（与网盘移动弹窗一致）
             if ((cloudState as? UCCloudUiState.Loaded)?.pathNames?.isNotEmpty() == true) {
                 BackToParentItem(onClick = { cloudViewModel.back() })
                 Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // 目录切换：淡入过渡（与网盘移动弹窗一致）
             AnimatedContent(
                 targetState = cloudState,
                 transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(140)) },
@@ -259,7 +233,6 @@ fun UCSaveSheet(
                 }
             }
 
-            // 转存结果提示（ModalBottomSheet 为独立窗口，需自带 Snackbar 宿主）
             SnackbarHost(hostState = snackbarHostState)
         }
     }

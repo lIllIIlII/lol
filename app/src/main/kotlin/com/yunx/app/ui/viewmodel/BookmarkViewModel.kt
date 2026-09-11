@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -30,9 +12,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/**
- * 网盘链接收藏 ViewModel：收藏列表（Room Flow → StateFlow）+ 分类合并 + CRUD。
- */
 class BookmarkViewModel(private val dao: BookmarkDao) : ViewModel() {
 
     val bookmarks: StateFlow<List<BookmarkEntity>> = dao.observeAll()
@@ -42,7 +21,6 @@ class BookmarkViewModel(private val dao: BookmarkDao) : ViewModel() {
             initialValue = emptyList()
         )
 
-    /** 分类列表：预置分类 + 数据库中已出现的自定义分类（去重，保持预置在前） */
     val categories: StateFlow<List<String>> = dao.observeCategories()
         .map { db -> (BookmarkEntity.PRESET_CATEGORIES + db).distinct() }
         .stateIn(

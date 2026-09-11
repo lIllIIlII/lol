@@ -1,8 +1,3 @@
-/*
- * 吸析At - 发现新版本弹窗（iOS 风格 + 液态玻璃）。
- * 非强制：稍后 / 忽略本次 / 应用内下载更新。
- */
-
 package com.yunx.app.ui.screens
 
 import androidx.compose.foundation.layout.Column

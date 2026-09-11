@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ComponentName
@@ -122,6 +104,7 @@ import com.yunx.app.R
 import com.yunx.app.data.prefs.SettingsRepository
 import com.yunx.app.ui.SnackbarController
 import com.yunx.app.ui.theme.GlassWallpaper
+import com.yunx.app.ui.theme.HoneycombPreview
 import com.yunx.app.ui.theme.ThemeController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -133,7 +116,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 预置主题色（Material 风格种子色） */
 private val presetColors = listOf(
     "蓝色" to 0xFF415F91L,
     "靛蓝" to 0xFF3F51B5L,
@@ -147,11 +129,6 @@ private val presetColors = listOf(
     "天蓝" to 0xFF0288D1L,
 )
 
-/**
- * 主题与外观设置页（参考 WebIDE ThemeSettingsItem 风格）：
- * - 外观模式：FilterChip 胶囊单选（跟随系统 / 浅色 / 深色）
- * - 主题色：可折叠卡片，动态色彩开关（Android12+）+ LazyRow 色圆选择 + 自定义调色盘
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeScreen(
@@ -161,12 +138,9 @@ fun ThemeScreen(
     val context = LocalContext.current
     BackHandler { onBack() }
     var showColorPicker by remember { mutableStateOf(false) }
-    // 主题色卡片默认展开
     var expanded by rememberSaveable { mutableStateOf(true) }
     val expandDuration = 200
 
-    // 单一动画源驱动折叠（Animatable 支持打断：快速连续点击时自动平滑过渡到新目标）：
-    // 高度 = contentHeightPx * progress，透明度 = progress，二者同步
     val density = LocalDensity.current
     var contentHeightPx by remember { mutableIntStateOf(0) }
     val expandProgress = remember { Animatable(if (expanded) 1f else 0f) }
@@ -177,18 +151,15 @@ fun ThemeScreen(
         )
     }
 
-    // Android12- 动态色不可用，视为默认蓝色
     val effectiveColorMode = if (ThemeController.colorMode == 0 && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
         1
     } else {
         ThemeController.colorMode
     }
 
-    // ---------- 桌面图标动态切换 ----------
     val settingsRepo = remember { SettingsRepository(context) }
     var appIconVariant by remember { mutableStateOf(settingsRepo.appIconVariant) }
 
-    // ---------- 自定义背景壁纸（v1.5.1） ----------
     val scope = rememberCoroutineScope()
     var hasCustomWallpaper by remember { mutableStateOf(GlassWallpaper.hasCustom(context)) }
     val wallpaperPicker = rememberLauncherForActivityResult(
@@ -244,7 +215,6 @@ fun ThemeScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            // ---------- 外观模式 ----------
             SectionLabel("外观模式")
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -278,7 +248,6 @@ fun ThemeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ---------- 主题色（可折叠卡片） ----------
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -286,7 +255,6 @@ fun ThemeScreen(
                 )
             ) {
                 Column {
-                    // Header：点击展开/收起
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -334,7 +302,6 @@ fun ThemeScreen(
                         )
                     }
 
-                            // 展开内容：高度 + 透明度由 Animatable 同步驱动（可打断、不裁剪、无跳变）
                             val animatedHeightDp = with(density) { (contentHeightPx * expandProgress.value).toDp() }
                             Box(
                                 modifier = Modifier
@@ -353,7 +320,6 @@ fun ThemeScreen(
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                             Spacer(modifier = Modifier.height(16.dp))
 
-                            // 动态色彩开关（仅 Android 12+）
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -378,7 +344,6 @@ fun ThemeScreen(
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
 
-                            // 主题色选择（动态开启时隐藏）
                             AnimatedVisibility(visible = effectiveColorMode != 0) {
                                 Column {
                                     Text(
@@ -391,7 +356,6 @@ fun ThemeScreen(
                                         contentPadding = PaddingValues(top = 10.dp, bottom = 8.dp)
                                     ) {
                                         itemsIndexed(presetColors) { _, (name, color) ->
-                                            // 默认蓝色模式只高亮蓝色；自定义模式高亮匹配种子色的那个
                                             val isSelected = (effectiveColorMode == 1 && color == 0xFF415F91L) ||
                                                 (effectiveColorMode == 2 && ThemeController.seedColor == color)
                                             ColorSelectionItem(
@@ -424,7 +388,6 @@ fun ThemeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ---------- 桌面图标（可折叠卡片） ----------
             SectionLabel("桌面图标")
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -433,7 +396,6 @@ fun ThemeScreen(
                 )
             ) {
                 Column {
-                    // Header：点击展开/收起
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -452,7 +414,6 @@ fun ThemeScreen(
                                 text = "桌面图标",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                             )
-                            // 与主题色卡片一致的副标题动画：展开时隐藏、收起时显示
                             AnimatedVisibility(
                                 visible = !iconExpanded,
                                 enter = fadeIn(tween(200)) + expandVertically(tween(200), expandFrom = Alignment.Top),
@@ -521,7 +482,50 @@ fun ThemeScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ---------- 背景壁纸（v1.5.1 自定义背景） ----------
+            SectionLabel("网盘视图")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainer
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "「网盘」页的布局样式",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SmoothFilterChip(
+                            selected = ThemeController.driveViewStyle == 0,
+                            label = "列表卡片",
+                            onClick = { ThemeController.setDriveViewStyle(context, 0) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        SmoothFilterChip(
+                            selected = ThemeController.driveViewStyle == 1,
+                            label = "蜂窝六边形",
+                            onClick = { ThemeController.setDriveViewStyle(context, 1) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HoneycombPreview(selected = ThemeController.driveViewStyle == 1)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "蜂窝式视图：网盘以六边形蜂巢排布，更紧凑直观。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             SectionLabel("背景壁纸")
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -530,7 +534,6 @@ fun ThemeScreen(
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    // 当前壁纸预览（内置默认 / 自定义）
                     val previewBmp = GlassWallpaper.sharp
                     if (previewBmp != null) {
                         Image(
@@ -606,7 +609,6 @@ fun ThemeScreen(
         }
     }
 
-    // 自定义调色盘
     if (showColorPicker) {
         ColorPickerDialog(
             initialColor = ThemeController.seedColor,
@@ -619,7 +621,6 @@ fun ThemeScreen(
     }
 }
 
-/** FilterChip 胶囊单选（参考 WebIDE SmoothFilterChip：选中 secondaryContainer，未选中描边） */
 @Composable
 private fun SmoothFilterChip(
     selected: Boolean,
@@ -656,7 +657,6 @@ private fun SmoothFilterChip(
     }
 }
 
-/** 预置色圆点（色圆 + 名称，选中显示对勾） */
 @Composable
 private fun ColorSelectionItem(
     color: Long,
@@ -700,7 +700,6 @@ private fun ColorSelectionItem(
     }
 }
 
-/** 自定义颜色按钮（色圆 + 名称，圆内显示 Palette 图标） */
 @Composable
 private fun CustomColorButton(
     isSelected: Boolean,
@@ -744,8 +743,6 @@ private fun CustomColorButton(
     }
 }
 
-// ================= 调色盘 Dialog（参考 WebIDE ColorPickerDialog 精简版） =================
-
 @Composable
 private fun ColorPickerDialog(
     initialColor: Long,
@@ -776,7 +773,6 @@ private fun ColorPickerDialog(
                     .padding(24.dp)
                     .fillMaxWidth()
             ) {
-                // 顶部：HEX 输入 + 预览
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -833,7 +829,6 @@ private fun ColorPickerDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // 颜色选择核心区：左侧 SatVal 方块 + 右侧色相条
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -867,7 +862,6 @@ private fun ColorPickerDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 底部按钮
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -883,7 +877,6 @@ private fun ColorPickerDialog(
     }
 }
 
-/** 饱和度/明度大方块（可拖拽/点击） */
 @Composable
 private fun SatValPanel(
     hue: Float,
@@ -918,7 +911,6 @@ private fun SatValPanel(
             drawRect(brush = Brush.horizontalGradient(listOf(Color.White, Color.Transparent)))
             drawRect(brush = Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
 
-            // 指示器（方形描边）
             val x = saturation * size.width
             val y = (1f - value) * size.height
             val cursorSize = 14f
@@ -938,7 +930,6 @@ private fun SatValPanel(
     }
 }
 
-/** 竖向色相条（可拖拽/点击） */
 @Composable
 private fun VerticalHueSlider(
     hue: Float,
@@ -964,7 +955,6 @@ private fun VerticalHueSlider(
             val colors = (0..360 step 10).map { Color.hsv(it.toFloat(), 1f, 1f) }
             drawRect(brush = Brush.verticalGradient(colors = colors))
 
-            // 指示器（横条）
             val y = (hue / 360f) * size.height
             val barHeight = 6f
             drawRect(
@@ -983,9 +973,6 @@ private fun VerticalHueSlider(
     }
 }
 
-// ================= 辅助 =================
-
-/** 桌面图标选项：图标预览 + 名称，选中高亮边框 + 角标对勾 */
 @Composable
 private fun AppIconOption(
     iconRes: Int,
@@ -1014,7 +1001,6 @@ private fun AppIconOption(
                     .clip(RoundedCornerShape(14.dp))
             )
             if (isSelected) {
-                // 右上角选中角标（对勾 + 主题色圆底）
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)

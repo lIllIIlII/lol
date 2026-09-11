@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -34,10 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
-/**
- * 网盘空间详情 ViewModel：并发加载 5 个平台的容量使用情况（仅已登录平台请求）。
- * 网盘页顶部「空间总览」展示用。
- */
 class DriveQuotaViewModel(
     private val quarkApi: QuarkApi,
     private val quarkCookie: suspend () -> String?,
@@ -73,30 +51,25 @@ class DriveQuotaViewModel(
     private val _pan123Quota = MutableStateFlow<QuotaInfo?>(null)
     val pan123Quota: StateFlow<QuotaInfo?> = _pan123Quota.asStateFlow()
 
-    /** 是否加载中 */
     val loading = MutableStateFlow(false)
 
-    /** 并发加载全部已登录平台的空间（各平台独立请求，互不阻塞；未登录平台自动跳过） */
     fun loadAll() {
-        if (loading.value) return // 防止下拉刷新与进入页面初始化重复触发
+        if (loading.value) return
         loading.value = true
         viewModelScope.launch {
             coroutineScope {
-                // 夸克
                 launch {
                     val qc = quarkCookie()
                     if (qc != null) {
                         _quarkQuota.value = runCatching { quarkApi.getQuota(qc) }.getOrNull()
                     }
                 }
-                // UC
                 launch {
                     val uc = ucCookie()
                     if (uc != null) {
                         _ucQuota.value = runCatching { ucApi.getQuota(uc) }.getOrNull()
                     }
                 }
-                // 迅雷
                 launch {
                     val xl = xunleiToken()
                     if (xl != null) {
@@ -105,21 +78,18 @@ class DriveQuotaViewModel(
                         _xunleiQuota.value = runCatching { xunleiApi.getQuota(xl, deviceId, captcha) }.getOrNull()
                     }
                 }
-                // 百度
                 launch {
                     val bd = baiduCookie()
                     if (bd != null) {
                         _baiduQuota.value = runCatching { baiduApi.getQuota(bd) }.getOrNull()
                     }
                 }
-                // 139
                 launch {
                     val c139 = c139Cookie()
                     if (c139 != null) {
                         _c139Quota.value = runCatching { c139Api.getQuota(c139) }.getOrNull()
                     }
                 }
-                // 123
                 launch {
                     val p123 = pan123Token()
                     if (p123 != null) {

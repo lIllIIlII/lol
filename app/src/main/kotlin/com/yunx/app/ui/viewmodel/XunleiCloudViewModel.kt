@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.viewmodel
 
 import androidx.compose.runtime.getValue
@@ -40,7 +22,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
-/** 迅雷云盘浏览 UI 状态 */
 sealed interface XunleiCloudUiState {
     data object Loading : XunleiCloudUiState
     data class Loaded(
@@ -51,12 +32,6 @@ sealed interface XunleiCloudUiState {
     data class Error(val message: String) : XunleiCloudUiState
 }
 
-/**
- * 迅雷云盘浏览 ViewModel（参考夸克/UC QuarkCloudViewModel）：
- * - 目录浏览（根/子目录/面包屑回退）+ 下拉刷新
- * - 文件操作：下载 / 重命名 / 移动 / 创建分享 / 删除 + 长按多选批量
- * 认证走 access_token（Bearer）+ 设备指纹 + captcha。
- */
 class XunleiCloudViewModel(
     private val api: XunleiApi,
     private val tokenProvider: suspend () -> String?,
@@ -99,9 +74,6 @@ class XunleiCloudViewModel(
 
     init {
         loadRoot()
-        // 启动期未登录时上面的 loadRoot 会残留「请先登录…」错误态；登录态从无到有后自动重载根目录，
-        // 进网盘列表无需再手动点「重试」。drop(1) 跳过 VM 创建时的登录态快照（init 已加载，避免冷启动重复），
-        // distinctUntilChanged 过滤登录后 Cookie/Token 刷新等重复 upsert。
         viewModelScope.launch {
             loginState
                 .drop(1)
@@ -117,8 +89,6 @@ class XunleiCloudViewModel(
         api.cacheUserId(token)
         return Triple(token, deviceId, captcha)
     }
-
-    // ---------- 目录浏览 ----------
 
     fun loadRoot() {
         dirStack.clear()
@@ -149,8 +119,6 @@ class XunleiCloudViewModel(
         }
         load(dirStack.lastOrNull() ?: "", nameStack.toList())
     }
-
-    // ---------- 多选 ----------
 
     fun enterMultiSelect(file: ShareFile) {
         multiSelectMode = true
@@ -195,12 +163,9 @@ class XunleiCloudViewModel(
         downloadTriggered = 0
     }
 
-    /** 中断当前下载（批量下载/文件夹下载） */
     fun cancelDownload() {
         downloadCancelRequested = true
     }
-
-    // ---------- 移动目标浏览 ----------
 
     fun openMoveRoot() {
         moveDirStack.clear()
@@ -246,16 +211,10 @@ class XunleiCloudViewModel(
         }
     }
 
-    // ---------- 单文件操作 ----------
-
-    /** 迅雷下载直链的请求头（签名 URL；UA 必须用官方 app UA，浏览器 UA 会触发 CDN 降级为 200 整文件） */
     private fun downloadHeaders(): Map<String, String> = mapOf(
         "User-Agent" to XunleiConstants.APP_UA
     )
 
-    /**
-     * 递归收集文件夹内所有文件（保持目录结构）。
-     */
     private suspend fun collectFolderFiles(
         dirFid: String,
         prefix: String,
@@ -272,7 +231,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 下载整个文件夹（操作菜单）：递归收集所有文件，保持目录结构保存到 Download */
     fun downloadFolder() {
         val folder = actionFile ?: return
         if (!folder.isdir) return
@@ -291,7 +249,6 @@ class XunleiCloudViewModel(
                 }
                 var okCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
@@ -299,7 +256,7 @@ class XunleiCloudViewModel(
                             ?: return@runCatching
                         downloadManager.enqueue(
                             url = link.downloadUrl,
-                            fileName = relPath, // 相对路径：Download/文件夹A/子目录/文件.mp4
+                            fileName = relPath,
                             size = link.size,
                             platform = DownloadPlatform.XUNLEI,
                             headers = downloadHeaders()
@@ -324,15 +281,11 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 下载：文件详情取直链（签名 URL，无需 Cookie）→ 内置下载队列 */
-    /** 待确认的下载直链（单文件下载弹窗展示用，长按链接可复制） */
     var downloadLink by mutableStateOf<DownloadLink?>(null)
         private set
 
-    /** 与 downloadLink 配套的入队参数（弹窗确认后直接入队） */
     private var pendingDownload: PendingDownload? = null
 
-    /** 下载文件：取直链 → 弹出下载确认弹窗（对齐解析页行为，确认后入队） */
     fun downloadFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -347,7 +300,7 @@ class XunleiCloudViewModel(
                     size = link.size,
                     headers = mapOf("User-Agent" to XunleiConstants.APP_UA)
                 )
-                downloadLink = link // 弹下载确认弹窗（长按直链可复制）
+                downloadLink = link
             } catch (e: Exception) {
                 cloudMessage = e.message ?: "下载失败"
             } finally {
@@ -356,7 +309,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 下载弹窗确认：用已生成的直链入队 */
     fun startDownload() {
         val pd = pendingDownload ?: return
         downloadLink = null
@@ -382,13 +334,11 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 关闭下载弹窗（放弃下载） */
     fun dismissDownloadDialog() {
         downloadLink = null
         pendingDownload = null
     }
 
-    /** 重命名 */
     fun renameFile(newName: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -410,7 +360,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 移动 */
     fun moveFile(toDirFid: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -431,10 +380,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 创建分享（迅雷必须带提取码；留空自动生成，可自定义 4 位）
-     *  @param expiredType 1=永久 2=1天 3=7天 4=30天（内部映射为 API 的 "-1"/"1"/"7"/"30"）
-     *  @param passCode 自定义提取码（4 位字母数字，留空则服务端自动生成）
-     */
     fun shareFile(expiredType: Int, passCode: String = "") {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -446,7 +391,6 @@ class XunleiCloudViewModel(
                     c.first, c.second, c.third, passCode
                 ) ?: throw IllegalStateException("创建分享失败")
                 shareResult = info.copy(expiredType = expiredType)
-                // 保留 actionFile：弹窗存活才能显示分享结果
             } catch (e: Exception) {
                 cloudMessage = e.message ?: "分享失败"
             } finally {
@@ -455,7 +399,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 删除（回收站） */
     fun deleteFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -475,9 +418,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    // ---------- 批量操作 ----------
-
-    /** 批量下载（不切页，保持处理中弹窗；选中文件夹时递归下载整个文件夹并保持目录结构） */
     fun downloadSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -487,7 +427,6 @@ class XunleiCloudViewModel(
             downloadCancelRequested = false
             try {
                 val c = creds() ?: throw IllegalStateException("请先登录迅雷网盘")
-                // 展开选中项：文件直接加入，文件夹递归收集
                 val tasks = mutableListOf<Pair<ShareFile, String>>()
                 for (file in files) {
                     if (file.isdir) {
@@ -504,7 +443,6 @@ class XunleiCloudViewModel(
                 var okCount = 0
                 var failCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
@@ -541,7 +479,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 批量分享 */
     fun shareSelected(expiredType: Int, passCode: String = "") {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -564,7 +501,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 有效期类型 → API 天数：1=永久 2=1天 3=7天 4=30天 */
     private fun expireDays(type: Int): String = when (type) {
         2 -> "1"
         3 -> "7"
@@ -572,7 +508,6 @@ class XunleiCloudViewModel(
         else -> "-1"
     }
 
-    /** 批量移动 */
     fun moveSelected(toDirFid: String) {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -593,7 +528,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    /** 批量删除 */
     fun deleteSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -614,9 +548,6 @@ class XunleiCloudViewModel(
         }
     }
 
-    // ---------- 内部 ----------
-
-    /** 下拉刷新 */
     fun refresh() {
         val current = uiState.value
         if (current !is XunleiCloudUiState.Loaded) {

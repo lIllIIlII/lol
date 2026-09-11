@@ -1,7 +1,3 @@
-/*
- * 吸析At - 简单 Cookie 型网盘账号 ViewModel（蓝奏云/奶牛快传/小飞机）。
- */
-
 package com.yunx.app.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -31,7 +27,6 @@ class SimpleAccountViewModel(
                 initialValue = null
             )
 
-    /** 保存 Cookie（非空且含 key=value 即成功） */
     suspend fun saveCookie(platform: String, cookie: String): Boolean =
         repository.saveCookie(platform, cookie, "")
 

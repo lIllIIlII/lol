@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.items
 
 import androidx.compose.animation.AnimatedVisibility
@@ -57,9 +39,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-/**
- * 浮动操作菜单项：标签 + 图标 + 可选选中态。
- */
 data class FabMenuItem(
     val label: String,
     val icon: ImageVector,
@@ -67,13 +46,6 @@ data class FabMenuItem(
     val onClick: () -> Unit
 )
 
-/**
- * 浮动操作菜单（云析原创实现，Material3 风格）：
- * - 右下角 FAB，点击展开/收起菜单，图标伴随旋转动画（＋ → ✕）；
- * - 菜单项从 FAB 上方滑入淡出，选中项高亮并带勾选标记；
- * - 展开时点击菜单外区域自动收起；
- * - 可选 visible 控制整体显隐。
- */
 @Composable
 fun BoxScope.CustomFabMenu(
     expanded: Boolean,
@@ -82,14 +54,12 @@ fun BoxScope.CustomFabMenu(
     modifier: Modifier = Modifier,
     visible: Boolean = true
 ) {
-    // FAB 图标旋转：展开时 ＋ 旋转 90° 变为 ✕
     val fabRotation by animateFloatAsState(
         targetValue = if (expanded) 90f else 0f,
         animationSpec = tween(durationMillis = 220),
         label = "fabRotation"
     )
 
-    // 展开时覆盖全屏的透明点击层：点击菜单外区域收起
     if (expanded) {
         Box(
             modifier = Modifier
@@ -108,7 +78,6 @@ fun BoxScope.CustomFabMenu(
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.Bottom
     ) {
-        // ---------- 菜单项 ----------
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn(tween(160)) + slideInVertically(tween(220)) { it / 2 },
@@ -162,7 +131,6 @@ fun BoxScope.CustomFabMenu(
             }
         }
 
-        // ---------- 主 FAB ----------
         AnimatedVisibility(visible = visible) {
             FloatingActionButton(
                 onClick = { onCheckedChange(!expanded) },

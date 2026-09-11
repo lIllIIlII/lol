@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.security
 
 import android.security.keystore.KeyGenParameterSpec
@@ -33,12 +15,6 @@ internal interface CredentialCipher {
     fun isEncrypted(stored: String): Boolean
 }
 
-/**
- * AES-GCM envelope encryption whose non-exportable key is held by Android Keystore.
- *
- * 性能优化：密钥首次从 Keystore 加载后缓存复用（AndroidKeyStore 每次 KeyStore.load+getKey
- * 都是 Binder IPC，缓存后避免每次解密/加密都重复走 IPC）。
- */
 internal class AndroidKeystoreCredentialCipher : CredentialCipher {
 
     @Volatile

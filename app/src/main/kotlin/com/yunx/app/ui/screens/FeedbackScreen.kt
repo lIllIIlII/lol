@@ -1,11 +1,3 @@
-/*
- * 吸析At - 反馈联系页（原「汇报日志」）。
- *
- * v1.4.0 逻辑变更：不再走 SMTP 邮件上报（配置繁琐、成功率低），直接展示
- * 开发者微信好友码与 QQ 好友码——扫一扫加好友，聊天里描述问题即可，
- * 配合「导出日志」功能（logcat 已脱敏）可把日志文件一并发给开发者。
- */
-
 package com.yunx.app.ui.screens
 
 import android.Manifest
@@ -80,10 +72,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
-/**
- * 反馈联系页：微信好友码 + QQ 好友码双卡片。
- * 保存到相册后可离线扫码；直接展示也可当场扫（屏幕扫码更方便）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedbackScreen(
@@ -94,7 +82,6 @@ fun FeedbackScreen(
     val scope = rememberCoroutineScope()
     var savedWechat by remember { mutableStateOf(false) }
     var savedQq by remember { mutableStateOf(false) }
-    // Android 9- 保存到公共 Pictures 需 WRITE_EXTERNAL_STORAGE 运行时授权
     var pendingPermission by remember { mutableStateOf<CompletableDeferred<Boolean>?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -104,7 +91,6 @@ fun FeedbackScreen(
     }
     BackHandler { onBack() }
 
-    /** 申请旧版存储权限（Android 10+ 直接返回 true） */
     suspend fun ensureStoragePermission(): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) return true
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE)
@@ -143,7 +129,6 @@ fun FeedbackScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ---------- 渐变说明头 ----------
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,7 +176,6 @@ fun FeedbackScreen(
                 }
             }
 
-            // ---------- 微信好友码 ----------
             ContactQrCard(
                 title = "微信好友",
                 drawableRes = R.drawable.wechat_friend_qr,
@@ -213,7 +197,6 @@ fun FeedbackScreen(
                 }
             )
 
-            // ---------- QQ 好友码 ----------
             ContactQrCard(
                 title = "QQ 好友",
                 drawableRes = R.drawable.qq_friend_qr,
@@ -235,7 +218,6 @@ fun FeedbackScreen(
                 }
             )
 
-            // ---------- 反馈姿势说明 ----------
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -270,7 +252,6 @@ fun FeedbackScreen(
     }
 }
 
-/** 好友码卡片：标题 + 二维码 + 提示 + 保存按钮 */
 @Composable
 private fun ContactQrCard(
     title: String,
@@ -342,7 +323,6 @@ private fun ContactQrCard(
     }
 }
 
-/** 通用：内置二维码资源解码为 Bitmap 并保存到系统相册（Android 10+ 走 MediaStore） */
 private fun saveQrToGallery(context: Context, drawableRes: Int, namePrefix: String): Boolean = runCatching {
     val bitmap: Bitmap = BitmapFactory.decodeResource(context.resources, drawableRes)
         ?: return@runCatching false

@@ -1,11 +1,3 @@
-/*
- * 吸析At - 通用 WebView 登录页（蓝奏云 / 奶牛快传 / 小飞机网盘）。
- *
- * WebView 全部在 remember{} 内创建并完成配置（含 CookieManager 第三方 Cookie 开关），
- * 引用在 lambda 内非空可达，杜绝旧版在 Android 16 上
- * `CookieManagerAdapter.setAcceptThirdPartyCookies → WebView.getSettings()` 的 NPE。
- */
-
 package com.yunx.app.ui.login
 
 import android.annotation.SuppressLint
@@ -60,23 +52,16 @@ import com.yunx.app.ui.rememberGlobalSnackbarHostState
 import com.yunx.app.ui.viewmodel.SimpleAccountViewModel
 import kotlinx.coroutines.launch
 
-/** 通用 WebView 登录配置 */
 data class GenericLoginConfig(
     val platform: String,
     val title: String,
-    /** 正确的登录入口（登录页而非下载页） */
     val loginUrl: String,
-    /** Cookie 提取域（多个域合并） */
     val cookieUrls: List<String>,
-    /** 登录态判定：Cookie 中出现任一键名即视为已登录 */
     val cookieKeys: List<String>,
-    /** WebView UA（null = 用系统默认） */
     val userAgent: String? = null,
-    /** 登录教程文案 */
     val tutorial: String
 )
 
-/** 三个简单网盘的登录配置（登录地址均为真实登录入口，非下载页） */
 object GenericLoginConfigs {
     val lanzou = GenericLoginConfig(
         platform = SimpleNetdisk.LANZOU,
@@ -129,7 +114,6 @@ fun GenericWebViewLoginScreen(
 
     val viewModel: SimpleAccountViewModel = viewModel(factory = SimpleAccountViewModel.Factory(repository))
 
-    // 合并 Cookie（key 去重，后写覆盖）
     fun cookieValue(): String {
         val cm = CookieManager.getInstance()
         runCatching { cm.flush() }
@@ -148,7 +132,6 @@ fun GenericWebViewLoginScreen(
     fun isPlausibleCookie(cookie: String): Boolean =
         cookie.isNotBlank() && config.cookieKeys.any { cookie.contains("$it=", ignoreCase = true) }
 
-    // WebView：remember{} 内一次性创建 + 全量配置（引用非空，无 NPE 风险）
     val webView = remember {
         WebView(context).apply {
             settings.javaScriptEnabled = true
@@ -164,13 +147,11 @@ fun GenericWebViewLoginScreen(
             settings.mediaPlaybackRequiresUserGesture = false
             settings.mixedContentMode = android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
             config.userAgent?.let { settings.userAgentString = it }
-            // Android 16 NPE 修复：在实例作用域内开启第三方 Cookie（旧版在空引用上调用导致崩溃）
             runCatching {
                 CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
                 CookieManager.getInstance().setAcceptCookie(true)
             }
             webViewClient = object : WebViewClient() {
-                // 空白页修复：主资源加载失败自动重载一次（临时网络抖动/SSL 握手失败常见）
                 private var reloadedOnce = false
 
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -199,7 +180,6 @@ fun GenericWebViewLoginScreen(
         }
     }
 
-    // 自动登录检测：Cookie 出现关键键名 → 自动保存（手动「保存」兜底）
     rememberWebLoginAutoDetect(
         sampleCredential = { cookieValue() },
         isPlausible = { isPlausibleCookie(it) },
@@ -289,7 +269,6 @@ fun GenericWebViewLoginScreen(
         }
     }
 
-    // 登录教程
     if (showTutorial) {
         AlertDialog(
             onDismissRequest = { showTutorial = false },
@@ -304,7 +283,6 @@ fun GenericWebViewLoginScreen(
         )
     }
 
-    // 手动 Cookie 输入
     if (showCookieDialog) {
         AlertDialog(
             onDismissRequest = {

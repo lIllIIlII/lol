@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.network
 
 import android.util.Base64
@@ -40,32 +22,19 @@ import java.util.zip.CRC32
 class Pan123Api(
     private val clientProvider: () -> OkHttpClient = { HttpClients.apiClient() }
 ) {
-    /** 每次请求动态获取全局客户端（忽略 SSL 开关切换即时生效） */
     private val client get() = clientProvider()
 
     private val jsonMediaType = "application/json;charset=UTF-8".toMediaType()
 
-    /** 设备标识（文档 §3.2：同一会话内不变、不参与签名；进程级固定即可） */
     private val loginuuid: String = Pan123Constants.newLoginUuid()
 
-    // ---------- 签名算法（文档 §6，已抓包逐字还原 + 实时验证） ----------
-
-    /** 标准 CRC-32（IEEE 802.3）→ 8 位小写十六进制（与 Python zlib.crc32 & 0xFFFFFFFF format 'x' 一致） */
     private fun crc32Hex(s: String): String {
         val crc = CRC32()
         crc.update(s.toByteArray(Charsets.UTF_8))
         return java.lang.Long.toHexString(crc.value and 0xFFFFFFFFL)
     }
 
-    /**
-     * 生成 123 云盘签名头（文档 §6.2）：
-     * - auth-key (timeSign) = crc32_hex(替换表映射后的 UTC "YYYYMMDDHHmm"，基准 ts + 57600s = +16h)；
-     * - auth-value = "<ts>-<random>-<crc32_hex(ts|random|path|web|3|auth_key)>"；
-     * 签名内部固定 OS=web / VER=3（与请求头 platform/app-version 无关，文档 §6.3）。
-     * @param path URL 路径：含 /b 前缀、不含 host、不含 query（如 /b/api/share/download/info）
-     */
     fun makeSign(path: String, ts: Long = System.currentTimeMillis() / 1000): Pair<String, String> {
-        // 1) auth-key (timeSign)：ts + 16h 以 UTC 格式化为 YYYYMMDDHHmm，逐数字替换
         val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
             timeInMillis = (ts + Pan123Constants.SIGN_OFFSET_SECONDS) * 1000L
         }
@@ -80,16 +49,12 @@ class Pan123Api(
         val substituted = minute.map { Pan123Constants.SIGN_TABLE[it - '0'] }.joinToString("")
         val authKey = crc32Hex(substituted)
 
-        // 2) auth-value：ts|random|path|web|3|auth_key 的 crc32
         val random = ThreadLocalRandom.current().nextInt(0, 10_000_000)
         val data = "$ts|$random|$path|${Pan123Constants.SIGN_OS}|${Pan123Constants.SIGN_VER}|$authKey"
         val authValue = "$ts-$random-${crc32Hex(data)}"
         return authKey to authValue
     }
 
-    // ---------- 用户信息（文档 §5.11） ----------
-
-    /** 校验登录态 + 取昵称：GET /b/api/user/info → data.Nickname；失败返回 null */
     suspend fun fetchNickname(token: String): String? = withContext(Dispatchers.IO) {
         runCatching {
             val json = getAuth(Pan123Constants.USER_INFO_URL, "/b/api/user/info", token)
@@ -98,7 +63,6 @@ class Pan123Api(
         }.getOrNull()
     }
 
-    /** 网盘空间详情：GET /b/api/user/info → SpaceUsed / SpacePermanent / SpaceTemp（文档 §5.11） */
     suspend fun getQuota(token: String): QuotaInfo? = withContext(Dispatchers.IO) {
         runCatching {
             val json = getAuth(Pan123Constants.USER_INFO_URL, "/b/api/user/info", token)
@@ -111,12 +75,6 @@ class Pan123Api(
         }.getOrNull()
     }
 
-    // ---------- 分享文件列表（文档 §5.2，匿名、无签名） ----------
-
-    /**
-     * 读取分享文件/目录列表（匿名），支持提取码、翻页、进入子目录。
-     * @return (文件列表, 下一页游标 or null=末页)。文档 §5.2：`Next=="-1"` 无下一页，空串 `""` 表示还有下一页。
-     */
     suspend fun getShareFiles(
         shareKey: String,
         sharePwd: String,
@@ -124,7 +82,6 @@ class Pan123Api(
         next: String,
         page: Int
     ): Pair<List<ShareFile>, String?> = withContext(Dispatchers.IO) {
-        // 参数顺序与抓包一致（§5.2 文件夹分享/有提取码）；⚠️ 无提取码时不传 SharePwd（传空值会 400 "请输入Next"）
         val url = buildString {
             append(Pan123Constants.SHARE_GET_URL)
             append("?limit=100")
@@ -150,19 +107,10 @@ class Pan123Api(
             throw IllegalStateException("分享已失效")
         }
         val files = parseInfoList(data)
-        // 文档 §5.2：Next=="-1" 无下一页；空串 "" 表示还有下一页（需继续翻页）；数字为游标
         val nextCursor = data.optString("Next").takeIf { it != "-1" }
         Pair(files, nextCursor)
     }
 
-    // ---------- 分享下载信息（文档 §5.3，需登录+签名） ----------
-
-    /**
-     * 分享文件取下载直链（POST /b/api/share/download/info）。
-     * @param file 列表项（fidToken 编码了 "S3KeyFlag|Etag"）
-     * @param token Bearer JWT
-     * @return 解码后的真实 CDN 直链（下载需带 Referer: https://yun.123pan.cn/）
-     */
     suspend fun getShareDownloadLink(
         shareKey: String,
         file: ShareFile,
@@ -175,7 +123,6 @@ class Pan123Api(
             .put("S3KeyFlag", s3KeyFlag)
             .put("Size", file.fsize)
             .put("Etag", etag)
-        // 签名 path 与请求头一致（含 /b）；分享下载信息走 android 平台头，签名内部仍固定 web/3（文档 §6.3）
         val json = postAuth(
             Pan123Constants.SHARE_DOWNLOAD_INFO_URL,
             "/b/api/share/download/info",
@@ -188,9 +135,7 @@ class Pan123Api(
         val data = json.optJSONObject("data") ?: return@withContext null
         val downloadUrl = data.optString("DownloadURL")
         if (downloadUrl.isBlank()) return@withContext null
-        // download-v2 包装 URL → Base64 解码 params 得真实 CDN 文件 URL（文档 §5.3.1）
         val decoded = decodeDownloadUrl(downloadUrl) ?: downloadUrl
-        // 同样循环跟随可能存在的 redirect_url（auto_redirect=0）
         val realUrl = followRedirectUrl(decoded)
         DownloadLink(
             fid = file.fid,
@@ -200,9 +145,6 @@ class Pan123Api(
         )
     }
 
-    // ---------- 个人盘（网盘页，需登录+签名） ----------
-
-    /** 单页个人盘文件：GET /b/api/file/list/new（文档 §5.4）。返回 (文件列表, 下一页游标 or null=末页) */
     private suspend fun fetchCloudPage(
         parentFileId: String,
         token: String,
@@ -220,24 +162,21 @@ class Pan123Api(
         checkOk(json, "获取文件列表失败")
         val data = json.optJSONObject("data") ?: return@withContext null
         val files = parseInfoList(data)
-        // 文档 §5.4：Next=="-1" 表示末页（游标取 null 结束翻页）；空串 ""/数字表示还有下一页
         val nextCursor = data.optString("Next").takeIf { it != "-1" }
         Pair(files, nextCursor)
     }
 
-    /** 个人盘文件列表：GET /b/api/file/list/new（文档 §5.4）。自动翻页，返回该目录下全部文件 */
     suspend fun listCloudFiles(parentFileId: String, token: String): List<ShareFile> {
         val all = mutableListOf<ShareFile>()
         var next = "0"
-        repeat(200) {            // 封顶 200 页，防异常死循环
+        repeat(200) {
             val (files, cursor) = fetchCloudPage(parentFileId, token, next) ?: return all
             all += files
-            next = cursor ?: return all   // Next=="-1" 时 cursor 为 null，结束
+            next = cursor ?: return all
         }
         return all
     }
 
-    /** 个人盘下载信息：POST /api/file/download_info（注意无 /b/，文档 §5.5）。返回真实直链 */
     suspend fun getDownloadLink(file: ShareFile, token: String): DownloadLink? = withContext(Dispatchers.IO) {
         val (s3keyFlag, etag, _) = decodeToken(file.fidToken)
         val body = JSONObject()
@@ -258,12 +197,7 @@ class Pan123Api(
         val data = json.optJSONObject("data") ?: return@withContext null
         val raw = data.optString("DownloadUrl")
         if (raw.isBlank()) return@withContext null
-        // ★ 个人盘同样存在 download-v2?params=<base64> 包装（Web 平台头触发，Web 中转页不是可下载直链）：
-        //   统一过 decodeDownloadUrl——能解码就给真实 CDN 直链；直链形态 decode 返回 null 回退 raw。
-        //   绝不能用 startsWith("http") 短路：中转页 URL 同样以 http 开头，无法区分。
         val decoded = decodeDownloadUrl(raw) ?: raw
-        // ★ 解码直链带 auto_redirect=0 时，CDN 返回 JSON（data.redirect_url）而非直接文件：
-        //   取链阶段循环跟随 redirect_url，交给下载引擎的必须是最终可下载地址。
         val url = followRedirectUrl(decoded)
         DownloadLink(
             fid = file.fid,
@@ -273,14 +207,6 @@ class Pan123Api(
         )
     }
 
-    // ---------- 网盘管理操作（文档 §5.7-5.10） ----------
-
-    /**
-     * 保存他人分享到个人网盘（copy/save，文档 §4.3）。
-     * ⚠️ mshare 子域**无需任何客户端签名**（源码实证 + 实测 code:0），仅带 Bearer + LoginUuid。
-     * 转存是异步任务：返回 (taskID, ShareId) 用于轮询 copy/save/get。
-     * @param toDirFid 转存目标目录 ID（个人盘 fileId；body 的 parentFileID/parentFileId 字段）
-     */
     suspend fun copySave(
         shareKey: String,
         sharePwd: String,
@@ -314,7 +240,6 @@ class Pan123Api(
                 )
             )
             .put("shareKey", shareKey)
-            // 无提取码发空串 ""，不要发 null（文档 §4.3）
             .put("sharePwd", sharePwd.ifBlank { "" })
             .put("currentLevel", 1)
             .put("superAdmin", JSONObject.NULL)
@@ -333,10 +258,6 @@ class Pan123Api(
         taskId to shareId
     }
 
-    /**
-     * 轮询转存任务结果（GET copy/save/get?taskID=，同样无需签名）。
-     * @return 转存成功后的新 fileId（无法解析时返回 taskId 字符串兜底）；超时返回 null
-     */
     suspend fun pollCopySave(taskId: Long, shareId: String, token: String): String? = withContext(Dispatchers.IO) {
         repeat(15) {
             kotlinx.coroutines.delay(1000)
@@ -352,13 +273,11 @@ class Pan123Api(
                 .build()
             val json = executeJson(request)
             if (json.optInt("code", -1) != 0) {
-                // 任务失败/异常：读取 message 抛错（若只是进行中则继续轮询）
                 val msg = json.optString("message")
                 if (msg.isNotBlank()) throw IllegalStateException("转存失败：$msg")
                 return@repeat
             }
             val data = json.optJSONObject("data") ?: return@repeat
-            // 完成标志（响应格式未在抓包完整呈现，容错多种形态）：
             val status = data.optInt("status", -1)
             val state = data.optString("state").lowercase()
             val done = data.optBoolean("finished", false) ||
@@ -375,13 +294,11 @@ class Pan123Api(
         null
     }
 
-    /** 从分享列表项提取数值 ShareId（S3KeyFlag 形如 "1816216065-0"，前缀即 mshare 子域数字） */
     private fun shareIdOf(file: ShareFile): String {
         val s3 = file.fidToken.substringBefore('|')
         return s3.substringBefore('-')
     }
 
-    /** 删除（移入回收站）：POST /b/api/file/trash */
     suspend fun deleteFiles(files: List<ShareFile>, token: String) = withContext(Dispatchers.IO) {
         val list = JSONArray()
         files.forEach { f ->
@@ -407,7 +324,6 @@ class Pan123Api(
         checkOk(json, "删除失败")
     }
 
-    /** 重命名：POST /b/api/file/rename */
     suspend fun renameFile(fileId: String, newName: String, token: String) = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("driveId", 0)
@@ -421,7 +337,6 @@ class Pan123Api(
         checkOk(json, "重命名失败")
     }
 
-    /** 移动：POST /b/api/file/mod_pid */
     suspend fun moveFiles(fileIds: List<String>, toParentFileId: String, token: String) = withContext(Dispatchers.IO) {
         val list = JSONArray()
         fileIds.forEach { list.put(JSONObject().put("FileId", it.toLongOrNull() ?: 0L)) }
@@ -435,12 +350,6 @@ class Pan123Api(
         checkOk(json, "移动失败")
     }
 
-    /**
-     * 创建分享：POST /b/api/share/create（文档 §5.10）。
-     * @param fileIds 文件/目录 ID 列表（单文件抓包为标量 int，多文件用数组）
-     * @param expiration 过期时间 ISO（永久用 Pan123Constants.EXPIRATION_FOREVER）
-     * @param sharePwd 提取码（null/空 = 无提取码）
-     */
     suspend fun createShare(
         fileIds: List<String>,
         shareName: String,
@@ -488,9 +397,6 @@ class Pan123Api(
         )
     }
 
-    // ---------- 内部工具 ----------
-
-    /** 解析响应 InfoList（分享与个人盘结构一致，文档 §5.2/§5.4） */
     private fun parseInfoList(data: JSONObject): List<ShareFile> {
         val arr = data.optJSONArray("InfoList") ?: return emptyList()
         return buildList {
@@ -504,7 +410,6 @@ class Pan123Api(
                         fsize = item.optLong("Size"),
                         isdir = type == 1,
                         pdirFid = item.optString("ParentFileId"),
-                        // 123 下载/转存需要 S3KeyFlag + Etag + StorageNode，编码进 fidToken："S3KeyFlag|Etag|StorageNode"
                         fidToken = "${item.optString("S3KeyFlag")}|${item.optString("Etag")}|${item.optString("StorageNode")}",
                         modifyTime = item.optString("UpdateAt")
                     )
@@ -513,7 +418,6 @@ class Pan123Api(
         }
     }
 
-    /** 解码 fidToken（"S3KeyFlag|Etag|StorageNode"；旧格式两段时 StorageNode 为空） */
     private fun decodeToken(fidToken: String): Triple<String, String, String> {
         val parts = fidToken.split('|')
         return Triple(
@@ -523,20 +427,14 @@ class Pan123Api(
         )
     }
 
-    /** 解码 123 下载 URL（兼容两种形态，文档 §5.3.1）：
-     *  - 形态 1：整段 base64（alist 风格）→ 直接解码
-     *  - 形态 2：download-v2?params=<base64 URL-safe> → 解码 params
-     */
     private fun decodeDownloadUrl(downloadUrl: String): String? {
         val trimmed = downloadUrl.trim()
-        // 形态 1：整段 base64（不含协议头的串）
         if (!trimmed.contains("://")) {
             return runCatching {
                 String(Base64.decode(trimmed, Base64.DEFAULT), Charsets.UTF_8)
                     .takeIf { it.startsWith("http", ignoreCase = true) }
             }.getOrNull()
         }
-        // 形态 2：download-v2?params=<base64>
         val idx = trimmed.indexOf("params=")
         if (idx < 0) return null
         val params = trimmed.substring(idx + "params=".length).substringBefore("&")
@@ -546,12 +444,6 @@ class Pan123Api(
         }.getOrNull()
     }
 
-    /**
-     * 跟随 123 CDN 的 redirect_url：带 `auto_redirect=0` 时，GET 直链返回
-     * JSON `{"code":0,"data":{"redirect_url":"https://...pd1.cjjd19.com/..."}}` 而非直接文件，
-     * 且 redirect_url 自身也可能带 auto_redirect=0（可能多跳）。这里循环跟随（最多 5 跳），
-     * 每跳仅当响应体很小（≤8KB，JSON 跳转页）才读取解析；大响应视为真实文件流，返回当前 URL。
-     */
     private fun followRedirectUrl(initialUrl: String): String {
         var url = initialUrl
         repeat(5) {
@@ -561,7 +453,6 @@ class Pan123Api(
         return url
     }
 
-    /** 探测单跳：响应为小 JSON 且含 data.redirect_url 时返回新地址，否则 null（当前 URL 即最终可下载地址） */
     private fun probeJsonRedirect(url: String): String? = runCatching {
         val request = Request.Builder()
             .url(url)
@@ -584,7 +475,6 @@ class Pan123Api(
         }
     }.getOrNull()
 
-    /** 成功判定：code == 0（登录接口除外，为 200） */
     private fun checkOk(json: JSONObject, fallback: String) {
         val code = json.optInt("code", -1)
         if (code == 0) return
@@ -592,7 +482,6 @@ class Pan123Api(
         throw IllegalStateException("$msg（code=$code）")
     }
 
-    /** 鉴权 GET（带 auth-key/auth-value 签名头） */
     private fun getAuth(url: String, path: String, token: String): JSONObject {
         val (ak, av) = makeSign(path)
         val request = Request.Builder()
@@ -610,7 +499,6 @@ class Pan123Api(
         return executeJson(request)
     }
 
-    /** 鉴权 POST（带 auth-key/auth-value 签名头；签名内部固定 web/3） */
     private fun postAuth(
         url: String,
         path: String,

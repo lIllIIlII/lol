@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.resolve
 
 import android.content.ClipData
@@ -55,10 +37,6 @@ import com.yunx.app.data.network.model.DownloadLink
 import com.yunx.app.ui.SnackbarController
 import com.yunx.app.ui.rememberGlobalSnackbarHostState
 
-/**
- * 下载直链弹窗：展示文件名与直链（长按直链复制），支持「开始下载」（分片多线程下载）。
- * 点「关闭」或弹窗外（管壁）关闭 = 放弃下载，由上层清理临时转存。
- */
 @Composable
 fun DownloadLinkDialog(
     link: DownloadLink,
@@ -67,7 +45,6 @@ fun DownloadLinkDialog(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // Dialog 内提示宿主（AlertDialog 为独立窗口）
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
     AlertDialog(
@@ -81,7 +58,6 @@ fun DownloadLinkDialog(
             )
         },
         text = {
-            // 内容超高时（横屏/小屏）可滚动，避免按钮被挤出屏幕
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -126,7 +102,6 @@ fun DownloadLinkDialog(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // Dialog 内提示（AlertDialog 为独立窗口，需自带 Snackbar 宿主）
                 SnackbarHost(hostState = snackbarHostState)
             }
         },

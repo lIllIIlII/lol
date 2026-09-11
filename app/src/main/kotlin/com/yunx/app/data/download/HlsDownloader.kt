@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.download
 
 import android.util.Log
@@ -32,7 +14,6 @@ import java.io.FileOutputStream
 import java.io.OutputStream
 import kotlin.coroutines.coroutineContext
 
-/** Bounded HLS downloader that never forwards credentials across origins. */
 object HlsDownloader {
     private const val TAG = "YunX-HLS"
     private const val MAX_REDIRECTS = 5
@@ -42,7 +23,6 @@ object HlsDownloader {
     private const val MAX_TOTAL_BYTES = 100L * 1024 * 1024 * 1024
     private const val COPY_BUFFER_SIZE = 64 * 1024
 
-    // Redirects are handled here so a cross-origin hop cannot inherit Cookie/Authorization.
     private val client get() = HttpClients.apiClient().newBuilder()
         .followRedirects(false)
         .followSslRedirects(false)

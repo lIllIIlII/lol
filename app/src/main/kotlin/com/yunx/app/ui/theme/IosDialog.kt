@@ -1,8 +1,3 @@
-/*
- * 吸析At - iOS 风格弹窗（毛玻璃卡片 + iOS 排版 + iOS 按钮语言）。
- * 用于：欢迎弹窗 / 更新提示 / 安全提示等。替代全屏欢迎页。
- */
-
 package com.yunx.app.ui.theme
 
 import androidx.compose.foundation.background
@@ -34,16 +29,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-/** iOS 系统蓝 */
 val IosBlue = Color(0xFF007AFF)
 val IosRed = Color(0xFFFF3B30)
 
-/**
- * iOS 风格弹窗容器：
- * - 半透明遮罩可点击关闭（可选）；
- * - 毛玻璃卡片（预模糊壁纸中心取样 + 色罩 + 圆角 28dp）；
- * - 内容插槽 + 底部按钮插槽（水平排列、iOS 分隔样式由 IosDialogButton 自带）。
- */
 @Composable
 fun IosAlertDialog(
     onDismissRequest: (() -> Unit)? = null,
@@ -91,7 +79,6 @@ fun IosAlertDialog(
     }
 }
 
-/** iOS 标题（17sp 半粗） */
 @Composable
 fun IosDialogTitle(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -105,7 +92,6 @@ fun IosDialogTitle(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** iOS 正文（13sp，次级灰） */
 @Composable
 fun IosDialogMessage(text: String, modifier: Modifier = Modifier) {
     Text(
@@ -119,11 +105,6 @@ fun IosDialogMessage(text: String, modifier: Modifier = Modifier) {
     )
 }
 
-/**
- * iOS 风格按钮（填充式主按钮 / 纯文字次按钮）。
- * - filled：iOS 蓝圆角填充按钮（高 44dp，全宽）；
- * - text：iOS 蓝纯文字。
- */
 @Composable
 fun IosDialogButton(
     text: String,
@@ -162,7 +143,6 @@ fun IosDialogButton(
     }
 }
 
-/** iOS 弹窗底部按钮行：主按钮全宽在上、次按钮文字在下（iOS Alert 纵向排布） */
 @Composable
 fun IosDialogActions(
     primary: Pair<String, () -> Unit>,
@@ -187,7 +167,6 @@ fun IosDialogActions(
     }
 }
 
-/** 弹窗顶部圆形图标容器（毛玻璃浅罩） */
 @Composable
 fun IosDialogIcon(
     content: @Composable () -> Unit
@@ -205,7 +184,6 @@ fun IosDialogIcon(
     }
 }
 
-/** iOS 风格标签胶囊（次要信息） */
 @Composable
 fun IosTagChip(text: String, modifier: Modifier = Modifier) {
     val isDark = MaterialTheme.colorScheme.background.luminance() <= 0.5f

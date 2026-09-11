@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import android.content.ContentValues
@@ -89,10 +71,6 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 
-/**
- * 支持开发页：展示微信赞赏码（可保存到相册）。
- * Material3 风格：渐变头部 + 卡片展示二维码 + 感谢语 + 保存按钮。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SupportScreen(
@@ -101,9 +79,7 @@ fun SupportScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    // 保存到相册成功状态（覆盖层内全局 Snackbar 可能被遮挡，用本地状态兜底反馈）
     var saved by remember { mutableStateOf(false) }
-    // Android 9- 保存到公共 Pictures 需 WRITE_EXTERNAL_STORAGE 运行时授权
     var pendingPermission by remember { mutableStateOf<kotlinx.coroutines.CompletableDeferred<Boolean>?>(null) }
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -111,7 +87,6 @@ fun SupportScreen(
         pendingPermission?.complete(granted)
         pendingPermission = null
     }
-    // 系统返回键 → 返回设置页
     BackHandler { onBack() }
 
     Scaffold(
@@ -139,7 +114,6 @@ fun SupportScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ---------- 渐变欢迎头 ----------
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -187,7 +161,6 @@ fun SupportScreen(
                 }
             }
 
-            // ---------- 微信捐赠码卡片 ----------
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -217,7 +190,6 @@ fun SupportScreen(
                     }
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 二维码图片（白底圆角卡片内展示）
                     Surface(
                         modifier = Modifier.size(240.dp),
                         shape = RoundedCornerShape(16.dp),
@@ -244,7 +216,6 @@ fun SupportScreen(
                 }
             }
 
-            // ---------- 免责说明（委婉） ----------
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.large,
@@ -276,7 +247,6 @@ fun SupportScreen(
                 }
             }
 
-            // ---------- 感谢语 ----------
             Text(
                 text = "感谢每一位支持者 ❤",
                 style = MaterialTheme.typography.bodyLarge,
@@ -285,11 +255,9 @@ fun SupportScreen(
                 textAlign = TextAlign.Center
             )
 
-            // ---------- 保存到相册 ----------
             Button(
                 onClick = {
                     scope.launch {
-                        // Android 9- 保存相册前检查并动态申请存储权限
                         val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                             true
                         } else if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
@@ -325,7 +293,6 @@ fun SupportScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(if (saved) "已保存到相册" else "保存到相册")
             }
-            // 保存成功本地反馈（避免覆盖层遮挡全局 Snackbar 时无提示）
             if (saved) {
                 Text(
                     text = "✓ 二维码已保存到 相册/Pictures/XiXiAt",
@@ -338,7 +305,6 @@ fun SupportScreen(
     }
 }
 
-/** 将内置微信赞赏码解码为 Bitmap 并保存到系统相册（Android 10+ 走 MediaStore，无需权限） */
 private fun saveRewardQrToGallery(context: Context): Boolean = runCatching {
     val bitmap: Bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.reward_qrcode)
         ?: return@runCatching false
@@ -365,7 +331,6 @@ private fun saveRewardQrToGallery(context: Context): Boolean = runCatching {
         )
         true
     } else {
-        // Android 10 以下：写入公共 Pictures 目录（需 WRITE_EXTERNAL_STORAGE 权限）
         val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
         if (!dir.exists()) dir.mkdirs()
         val file = File(dir, fileName)

@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.login
 
 import android.graphics.Bitmap
@@ -75,16 +57,6 @@ private fun attachVerificationBridge(webView: WebView, bridge: XunleiJsBridge) {
     webView.addJavascriptInterface(bridge, "XLJSWebViewBridge")
 }
 
-/**
- * 迅雷验证页应用内承载（V3 · 实测修复）。
- *
- * 真正根因（反编译 vertifyPhone.js + 无头 Chromium 实测）：
- * 1) init 配置必须带非空 IFRAME_BOX_ID，否则 modifyConfig 里
- *    `"" == IFRAME_BOX_ID && !this.isMobileSDK()` 会调用包里根本不存在的
- *    isMobileSDK() 抛 TypeError → init 中止 → showPanel 永不执行 → 空白；
- * 2) 页面用 parseQueryString(location.href) 从 URL 读 deviceid（不读 init 配置），
- *    必须把 deviceid 拼进 URL，否则点"获取验证码"报 deviceid不能为空。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun XunleiVerifyWebViewScreen(
@@ -164,8 +136,6 @@ fun XunleiVerifyWebViewScreen(
                 }
             }
             webChromeClient = WebChromeClient()
-            // 【修复点 1】页面用 parseQueryString(location.href) 读 deviceid，
-            // 必须把 deviceid 拼进 URL，否则发短信会报 "deviceid不能为空"。
             loadUrl(if (trustedInitialUrl) withDeviceId(verifyUrl, deviceId) else "about:blank")
         }
     }
@@ -201,28 +171,15 @@ fun XunleiVerifyWebViewScreen(
     }
 }
 
-/**
- * 把 deviceid 安全地拼到 reviewurl 后面。
- * 页面只认 URL 里的 deviceid（init 配置里的 deviceid 它不读）。
- */
 private fun withDeviceId(url: String, deviceId: String): String {
     if (deviceId.isBlank()) return url
     val sep = if (url.contains('?')) '&' else '?'
     return "$url${sep}deviceid=${Uri.encode(deviceId)}"
 }
 
-/**
- * 核心修复脚本（V3）：
- * 1) 设置 window.env（顶层 WebView 中 window.parent === window，等效 parent.env）；
- * 2) 【关键】init 配置必须带 IFRAME_BOX_ID（非空），
- *    否则 modifyConfig 会执行 this.isMobileSDK() 抛错，init 中止 → 永久空白；
- * 3) 防御性注入 isMobileSDK 桩（即便未来版本不短路也不至于崩）；
- * 4) 轮询等待 window.XlCaptcha.init 就绪后调用，带 VERTIFYSUCCFUNC 回传成功结果；
- * 5) __xunleiInited 守卫避免重复 init。
- */
 private fun buildInitScript(deviceId: String): String {
-    val pkg = "ANDROID-com.xunlei.downloadprovider"   // 必须与 reviewurl 里的 appName 一致
-    val cv = XunleiConstants.APP_CLIENT_VERSION      // 8.31.0.9726
+    val pkg = "ANDROID-com.xunlei.downloadprovider"
+    val cv = XunleiConstants.APP_CLIENT_VERSION
     val pkgJs = JSONObject.quote(pkg)
     val clientVersionJs = JSONObject.quote(cv)
     val deviceIdJs = JSONObject.quote(deviceId)

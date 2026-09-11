@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.backup
 
 import android.util.Base64
@@ -26,14 +8,6 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 
-/**
- * 网盘认证备份的 AES 加密/解密：
- * - 密钥：PBKDF2WithHmacSHA256（16 字节随机盐 + 210000 次迭代）从用户密码派生；
- * - 加密：AES/GCM/NoPadding（128 位 tag，认证加密，密文被篡改会解密失败）；
- * - 格式：Base64(魔数 "YUNX_AUTH_V2" + salt(16) + iv(12) + ciphertext)。
- * - 解密兼容旧版 V1（10000 次迭代）备份。
- * 密码错误 / 文件被篡改 → 解密抛异常（AEADBadTagException），上层提示「密码错误，解密失败」。
- */
 object AuthCrypto {
 
     private const val MAGIC_V1 = "YUNX_AUTH_V1"
@@ -45,7 +19,6 @@ object AuthCrypto {
     private const val IV_SIZE = 12
     private const val GCM_TAG_BITS = 128
 
-    /** 加密明文 JSON，返回 Base64 密文（含魔数头部） */
     fun encrypt(plain: String, password: String): String {
         require(password.length >= 8) { "备份口令至少 8 位" }
         val salt = ByteArray(SALT_SIZE).also { SecureRandom().nextBytes(it) }
@@ -63,7 +36,6 @@ object AuthCrypto {
         return Base64.encodeToString(payload, Base64.NO_WRAP)
     }
 
-    /** 解密 Base64 密文；密码错误/文件损坏抛异常 */
     fun decrypt(data: String, password: String): String {
         val payload = Base64.decode(data.trim(), Base64.NO_WRAP)
         val magicV1 = MAGIC_V1.toByteArray(Charsets.UTF_8)
@@ -85,7 +57,6 @@ object AuthCrypto {
         return String(cipher.doFinal(ciphertext), Charsets.UTF_8)
     }
 
-    /** 判断内容是否为加密备份（检查魔数头部） */
     fun isEncrypted(data: String): Boolean = runCatching {
         val payload = Base64.decode(data.trim(), Base64.NO_WRAP)
         val magicV1 = MAGIC_V1.toByteArray(Charsets.UTF_8)

@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.viewmodel
 
 import androidx.compose.runtime.getValue
@@ -40,24 +22,16 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 
-/** 百度网盘云盘浏览 UI 状态 */
 sealed interface BaiduCloudUiState {
     data object Loading : BaiduCloudUiState
     data class Loaded(
         val files: List<ShareFile>,
         val pathNames: List<String>,
-        /** 当前目录绝对路径（根="/"） */
         val dirPath: String
     ) : BaiduCloudUiState
     data class Error(val message: String) : BaiduCloudUiState
 }
 
-/**
- * 百度网盘云盘浏览 ViewModel（参考夸克/UC/迅雷云盘）：
- * - 目录浏览（根/子目录/面包屑回退）+ 下拉刷新
- * - 文件操作：下载 / 重命名 / 移动 / 创建分享 / 删除 + 长按多选批量
- * 认证走 Cookie（BDUSS），目录用绝对路径，文件标识 fs_id + path。
- */
 class BaiduCloudViewModel(
     private val api: BaiduApi,
     private val cookieProvider: suspend () -> String?,
@@ -98,9 +72,6 @@ class BaiduCloudViewModel(
 
     init {
         loadRoot()
-        // 启动期未登录时上面的 loadRoot 会残留「请先登录…」错误态；登录态从无到有后自动重载根目录，
-        // 进网盘列表无需再手动点「重试」。drop(1) 跳过 VM 创建时的登录态快照（init 已加载，避免冷启动重复），
-        // distinctUntilChanged 过滤登录后 Cookie/Token 刷新等重复 upsert。
         viewModelScope.launch {
             loginState
                 .drop(1)
@@ -111,8 +82,6 @@ class BaiduCloudViewModel(
 
     private suspend fun cookie(): String =
         cookieProvider() ?: throw IllegalStateException("请先登录百度网盘")
-
-    // ---------- 目录浏览 ----------
 
     fun loadRoot() {
         dirStack.clear()
@@ -144,8 +113,6 @@ class BaiduCloudViewModel(
         }
         load(dirStack.lastOrNull() ?: "/", nameStack.toList())
     }
-
-    // ---------- 多选 ----------
 
     fun enterMultiSelect(file: ShareFile) {
         multiSelectMode = true
@@ -190,12 +157,9 @@ class BaiduCloudViewModel(
         downloadTriggered = 0
     }
 
-    /** 中断当前下载（批量下载/文件夹下载） */
     fun cancelDownload() {
         downloadCancelRequested = true
     }
-
-    // ---------- 移动目标浏览 ----------
 
     fun openMoveRoot() {
         moveDirStack.clear()
@@ -236,18 +200,11 @@ class BaiduCloudViewModel(
         }
     }
 
-    // ---------- 单文件操作 ----------
-
-    /** 百度下载直链的请求头（locatedownload 需 Cookie + netdisk UA） */
     private fun downloadHeaders(cookie: String): Map<String, String> = mapOf(
         "Cookie" to cookie,
         "User-Agent" to BaiduConstants.UA_NETDISK
     )
 
-    /**
-     * 递归收集文件夹内所有文件（保持目录结构）。
-     * 百度目录用绝对路径（dirPath），文件夹路径在 fidToken 字段。
-     */
     private suspend fun collectFolderFiles(
         dirPath: String,
         prefix: String,
@@ -264,7 +221,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 下载整个文件夹（操作菜单）：递归收集所有文件，保持目录结构保存到 Download */
     fun downloadFolder() {
         val folder = actionFile ?: return
         if (!folder.isdir) return
@@ -283,14 +239,13 @@ class BaiduCloudViewModel(
                 }
                 var okCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
                         val link = api.locateDownload(file.fidToken, cookie)
                         downloadManager.enqueue(
                             url = link,
-                            fileName = relPath, // 相对路径：Download/文件夹A/子目录/文件.mp4
+                            fileName = relPath,
                             size = file.fsize,
                             platform = DownloadPlatform.BAIDU,
                             headers = downloadHeaders(cookie)
@@ -315,15 +270,11 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 下载：locatedownload 取直链（需 Cookie + netdisk UA）→ 内置下载队列 */
-    /** 待确认的下载直链（单文件下载弹窗展示用，长按链接可复制） */
     var downloadLink by mutableStateOf<DownloadLink?>(null)
         private set
 
-    /** 与 downloadLink 配套的入队参数（弹窗确认后直接入队） */
     private var pendingDownload: PendingDownload? = null
 
-    /** 下载文件：取直链 → 弹出下载确认弹窗（对齐解析页行为，确认后入队） */
     fun downloadFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -345,7 +296,7 @@ class BaiduCloudViewModel(
                         "User-Agent" to BaiduConstants.UA_NETDISK
                     )
                 )
-                downloadLink = link // 弹下载确认弹窗（长按直链可复制）
+                downloadLink = link
             } catch (e: Exception) {
                 cloudMessage = e.message ?: "下载失败"
             } finally {
@@ -354,7 +305,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 下载弹窗确认：用已生成的直链入队 */
     fun startDownload() {
         val pd = pendingDownload ?: return
         downloadLink = null
@@ -380,13 +330,11 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 关闭下载弹窗（放弃下载） */
     fun dismissDownloadDialog() {
         downloadLink = null
         pendingDownload = null
     }
 
-    /** 重命名 */
     fun renameFile(newName: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -407,7 +355,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 移动 */
     fun moveFile(toDirPath: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -426,7 +373,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 创建分享（百度必须带 4 位提取码） */
     fun shareFile(period: Int, pwd: String) {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -448,7 +394,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 删除 */
     fun deleteFile() {
         val file = actionFile ?: return
         viewModelScope.launch {
@@ -467,9 +412,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    // ---------- 批量操作 ----------
-
-    /** 批量下载（不切页；选中文件夹时递归下载整个文件夹并保持目录结构） */
     fun downloadSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -479,7 +421,6 @@ class BaiduCloudViewModel(
             downloadCancelRequested = false
             try {
                 val cookie = cookie()
-                // 展开选中项：文件直接加入，文件夹递归收集
                 val tasks = mutableListOf<Pair<ShareFile, String>>()
                 for (file in files) {
                     if (file.isdir) {
@@ -496,7 +437,6 @@ class BaiduCloudViewModel(
                 var okCount = 0
                 var failCount = 0
                 tasks.forEachIndexed { index, (file, relPath) ->
-                    // 用户点击「中断」：跳过剩余项（已入队任务保留下载）
                     if (downloadCancelRequested) return@forEachIndexed
                     folderProgress = "正在加入下载 ${index + 1}/${tasks.size}"
                     runCatching {
@@ -532,7 +472,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 批量分享 */
     fun shareSelected(period: Int, pwd: String) {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -558,7 +497,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 批量移动 */
     fun moveSelected(toDirPath: String) {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -578,7 +516,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 批量删除 */
     fun deleteSelected() {
         val files = _selected.toList()
         if (files.isEmpty()) return
@@ -598,9 +535,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    // ---------- 内部 ----------
-
-    /** 下拉刷新 */
     fun refresh() {
         val current = uiState.value
         if (current !is BaiduCloudUiState.Loaded) {
@@ -641,7 +575,6 @@ class BaiduCloudViewModel(
         }
     }
 
-    /** 百度 period → ShareInfo.expiredType（0永久/1一天/7七天/30三十天 → 1/2/3/4） */
     private fun expireType(period: Int): Int = when (period) {
         1 -> 2
         7 -> 3

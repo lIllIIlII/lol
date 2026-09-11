@@ -1,9 +1,3 @@
-/*
- * 吸析At - 简单 Cookie 型网盘账号（蓝奏云 / 奶牛快传 / 小飞机网盘）。
- * 这三个网盘解析无需登录，登录态仅用于提升可靠性（蓝奏云账号 Cookie 绕过部分风控）。
- * 一张表通用三平台：platform 为主键（"lanzou" / "cowtransfer" / "feiji"）。
- */
-
 package com.yunx.app.data.db
 
 import androidx.room.Dao
@@ -18,9 +12,7 @@ import kotlinx.coroutines.flow.Flow
 data class SimpleAccountEntity(
     @PrimaryKey
     val platform: String,
-    /** WebView 登录后提取的整串 Cookie（加密落库） */
     val cookie: String = "",
-    /** 展示名（蓝奏云用户名等，拿不到时留空） */
     val nickname: String = "",
     val updatedAt: Long = System.currentTimeMillis()
 )

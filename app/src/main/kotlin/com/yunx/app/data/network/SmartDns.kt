@@ -1,24 +1,3 @@
-/*
- * 吸析At - 智能 DNS 解析（系统 DNS + DoH 双路，防域名污染）。
- *
- * 背景：蓝奏云家族域名（wwbll.lanzoul.com / wwap.lanzoub.com 等）与
- * 蓝奏云优享版域名（www.ilanzou.com）在部分运营商网络存在 DNS 污染——
- * 系统解析返回假 IP，TCP 连接超时，应用表现为「网络错误」，而其他网盘一切正常
- * （真机复现：www.ilanzou.com 系统 DNS 返回 113.215.245.x 假 IP 不可连，
- *   DoH 解析真实 CDN 182.242.90.x 直连可用）。
- *
- * 策略：
- * - 每次解析同时走 系统DNS 与 DoH（阿里 / DNSPod JSON API，IP 直连不依赖 DNS）；
- * - DoH 三服务商 **并行查询**（整体 2.5s 预算，任一返回即采用），
- *   相比串行最多 18s 空等（3×6s），DoH 部分不可达时不再拖慢请求；
- * - DoH 全部失败 → **负缓存 60s**（期间直接走系统 DNS，避免每个请求都空等预算）；
- * - DoH 结果排前面（真实 CDN IP 优先），系统结果殿后兜底；OkHttp 在路由失败时
- *   会自动切换下一个地址（retryOnConnectionFailure），因此两路互为保险：
- *   · 系统 DNS 被污染 → 先连 DoH 真实 IP，成功；
- *   · DoH 不可达/被墙 → 退回系统 IP；
- * - 成功结果缓存 60 秒；
- * - 仅 IPv4（A 记录）：国内移动网络 IPv6 路由质量参差，优先 v4 稳定性。
- */
 package com.yunx.app.data.network
 
 import okhttp3.Dns
@@ -36,28 +15,23 @@ import java.util.concurrent.TimeUnit
 
 object SmartDns : Dns {
 
-    /** DoH 服务器（url 模板：阿里公共 DNS 主备 + 腾讯 DNSPod，均以 IP 直连不依赖 DNS） */
     private val dohEndpoints = listOf(
         "https://223.5.5.5/resolve?name=%s&type=A",
         "https://223.6.6.6/resolve?name=%s&type=A",
-        "https://119.29.29.29/dns-query?name=%s&type=1" // DNSPod（Google DoH JSON 同构）
+        "https://119.29.29.29/dns-query?name=%s&type=1"
     )
 
-    /** DoH 并行查询线程池（守护线程：不阻止进程退出） */
     private val dohExecutor: ExecutorService = Executors.newFixedThreadPool(3) { r ->
         Thread(r, "smart-dns-doh").apply { isDaemon = true }
     }
 
-    /** 成功缓存：60s 内直接复用（域名解析不是热路径，避免每次请求都打 DoH） */
     private val cache = ConcurrentHashMap<String, Cached>()
     private const val CACHE_MS = 60_000L
 
-    /** 负缓存：DoH 整体不可达时短记 60s，期间跳过 DoH 直接系统解析（防每请求空等） */
     private val negativeCache = ConcurrentHashMap<String, Long>()
 
     private class Cached(val expiresAt: Long, val addresses: List<InetAddress>)
 
-    /** bootstrap 客户端：连 DoH 服务器本身就是 IP 直连，无需 DNS，形成解析起点 */
     private val dohClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(3, TimeUnit.SECONDS)
@@ -66,24 +40,19 @@ object SmartDns : Dns {
     }
 
     override fun lookup(hostname: String): List<InetAddress> {
-        // IP 字面量直接返回（不该也不会进 DoH）
         if (isLiteralIp(hostname)) return listOf(InetAddress.getByName(hostname))
         val hit = cache[hostname]
         if (hit != null && System.currentTimeMillis() < hit.expiresAt) return hit.addresses
 
-        // 并行：DoH 三服务商先发车（线程池），系统 DNS 内联解析（OS 缓存通常 <50ms，
-        // 与 DoH 等待窗口天然重叠，互不占用对方线程）
         val dohFutures = submitDoh(hostname)
         val system = runCatching { Dns.SYSTEM.lookup(hostname) }.getOrDefault(emptyList())
         val doh = awaitDoh(hostname, dohFutures)
 
-        // DoH 优先（防污染），系统兜底；保序去重
         val merged = ArrayList<InetAddress>(doh.size + system.size)
         (doh.asSequence() + system.asSequence())
             .filter { it is java.net.Inet4Address }
             .distinctBy { it.hostAddress }
             .forEach { merged.add(it) }
-        // DoH 与系统都没有 v4 → 放行系统 v6 结果（极端 IPv6-only 网络仍可用）
         if (merged.isEmpty()) merged.addAll(system)
         if (merged.isEmpty()) throw UnknownHostException("无法解析域名: $hostname")
 
@@ -91,7 +60,6 @@ object SmartDns : Dns {
         return merged
     }
 
-    /** 提交全部 DoH 服务商查询（并行） */
     private fun submitDoh(hostname: String): List<Future<List<InetAddress>>> {
         if (isNegativeCached(hostname)) return emptyList()
         return dohEndpoints.map { template ->
@@ -99,7 +67,6 @@ object SmartDns : Dns {
         }
     }
 
-    /** 等待 DoH 结果：2.5s 预算内任一非空即采用；全部失败 → 负缓存 60s */
     private fun awaitDoh(hostname: String, futures: List<Future<List<InetAddress>>>): List<InetAddress> {
         if (futures.isEmpty()) return emptyList()
         val deadline = System.currentTimeMillis() + 2500
@@ -116,7 +83,6 @@ object SmartDns : Dns {
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
         }
-        // 预算内无任何 DoH 结果：取消挂起查询 + 负缓存，下个窗口直接系统解析
         futures.forEach { it.cancel(true) }
         negativeCache[hostname] = System.currentTimeMillis() + CACHE_MS
         return emptyList()
@@ -130,7 +96,6 @@ object SmartDns : Dns {
         }
     }
 
-    /** 单服务商 DoH JSON 查询（阿里 /resolve?name=<host>&type=A；DNSPod /dns-query?name=<host>&type=1） */
     private fun queryDoh(url: String): List<InetAddress> {
         val body = runCatching {
             dohClient.newCall(
@@ -149,10 +114,9 @@ object SmartDns : Dns {
         val out = ArrayList<InetAddress>(answers.length())
         for (i in 0 until answers.length()) {
             val a = answers.optJSONObject(i) ?: continue
-            if (a.optInt("type") != 1) continue // 仅 A 记录（CNAME 链中的 A 也在同一 Answer 数组）
+            if (a.optInt("type") != 1) continue
             val ip = a.optString("data").trim()
             if (ip.isEmpty()) continue
-            // 字面量 IP 构造，不触发任何解析
             runCatching { InetAddress.getByName(ip) }.getOrNull()?.let { out.add(it) }
         }
         return out

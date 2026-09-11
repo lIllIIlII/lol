@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.data.download
 
 import android.content.ContentResolver
@@ -29,26 +11,12 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import java.io.File
 
-/**
- * 完成文件保存到公共 Download 目录：
- * - Android 10+（Q）：MediaStore.Downloads，无需存储权限；
- * - Android 9-：Environment.getExternalStoragePublicDirectory + WRITE_EXTERNAL_STORAGE。
- * 幽灵文件（文件已删但 MediaStore 残留）导致同名 insert 失败时，自动加时间戳防重保存。
- */
 object DownloadSaver {
 
     private const val TAG = "YunX-DL"
 
-    /** 大文件拷贝缓冲：1MB（默认 copyTo 8KB 对 GB 级文件是灾难，IO 次数过多导致保存极慢） */
     private const val COPY_BUFFER_SIZE = 1 * 1024 * 1024
 
-    /**
-     * 保存文件到下载目录。
-     * @param fileName 可为**相对路径**（如 "文件夹A/子/文件.mp4"，用于下载整个文件夹保持目录结构）；
-     *                 纯文件名时保存到根目录。
-     * @param targetDirUri 自定义保存目录（SAF tree Uri，content://...）；null 时用系统默认 Download
-     * @return 保存成功后的标识（MediaStore uri 字符串 / SAF 文档 uri / 文件绝对路径）；失败返回 null
-     */
     fun save(context: Context, fileName: String, source: File, targetDirUri: String? = null): String? {
         val safePath = DownloadPathPolicy.sanitize(
             fileName,
@@ -59,11 +27,9 @@ object DownloadSaver {
         }
         val safeName = safePath.fileName
         val safeDir = safePath.relativeDirectory
-        // 自定义 SAF 目录：优先走系统文档树（适配 Android 10/11+ 分区存储与 Android 9-，无需额外存储权限）
         if (!targetDirUri.isNullOrBlank()) {
             return saveViaSaf(context, safeName, safeDir, source, targetDirUri)
         }
-        // 默认目录：Android 10+ 优先 MediaStore；失败则回退传统文件路径（Android 9- 可用）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             saveViaMediaStore(context, safeName, safeDir, source)?.let { return it }
             Log.e(TAG, "MediaStore 保存失败，回退传统路径：$safeDir/$safeName")
@@ -73,12 +39,6 @@ object DownloadSaver {
         return null
     }
 
-    /**
-     * 通过 SAF 文档树保存（自定义下载目录）：
-     * - tree uri 由用户经系统「选择文件夹」弹窗授权（takePersistableUriPermission 持久化）；
-     * - 相对路径子目录逐级查找/创建（MIME_TYPE_DIR）；
-     * - 文件名冲突自动加时间戳防重。
-     */
     private fun saveViaSaf(
         context: Context,
         fileName: String,
@@ -89,17 +49,13 @@ object DownloadSaver {
         val resolver = context.contentResolver
         val treeUri = android.net.Uri.parse(treeUriString)
         return runCatching {
-            // tree URI 不能直接作为 createDocument 的父目录（Android 10 抛 Invalid URI）：
-            // 先取根文档 id，构建根 document URI 作为初始目录
             val rootDocId = DocumentsContract.getTreeDocumentId(treeUri)
             var dirUri = DocumentsContract.buildDocumentUriUsingTree(treeUri, rootDocId)
-            // 定位（或创建）目标目录：相对路径逐级解析
             if (subDir.isNotBlank()) {
                 for (part in subDir.split('/').filter { it.isNotBlank() }) {
                     dirUri = getOrCreateSafDir(resolver, treeUri, dirUri, part) ?: return@runCatching null
                 }
             }
-            // 候选：原名 → 时间戳防重名
             val candidates = buildList {
                 add(fileName)
                 repeat(3) { i -> add(timestampedName(fileName, i)) }
@@ -125,18 +81,12 @@ object DownloadSaver {
         }.getOrNull()
     }
 
-    /**
-     * 在父文档树下查找/创建指定名称的子目录，返回其文档 uri。
-     * @param treeUri 原始 tree Uri（供 buildChildDocumentsUriUsingTree / buildDocumentUriUsingTree 使用）
-     * @param parentDocUri 当前父目录的 document Uri（供 createDocument 使用）
-     */
     private fun getOrCreateSafDir(
         resolver: ContentResolver,
         treeUri: android.net.Uri,
         parentDocUri: android.net.Uri,
         name: String
     ): android.net.Uri? {
-        // 先查已存在的子目录：children 查询基于 tree Uri + 父目录文档 id
         val parentDocId = DocumentsContract.getDocumentId(parentDocUri)
         val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(treeUri, parentDocId)
         resolver.query(
@@ -157,13 +107,11 @@ object DownloadSaver {
                 }
             }
         }
-        // 不存在则创建（父目录必须是 document Uri）
         return DocumentsContract.createDocument(
             resolver, parentDocUri, DocumentsContract.Document.MIME_TYPE_DIR, name
         )
     }
 
-    /** 从 SAF tree uri 提取可读目录名（如 primary:Download/MyFolder → "Download/MyFolder"） */
     fun safDirDisplay(uriString: String): String {
         return runCatching {
             val treeId = DocumentsContract.getTreeDocumentId(android.net.Uri.parse(uriString))
@@ -172,12 +120,6 @@ object DownloadSaver {
         }.getOrDefault("自定义目录")
     }
 
-    /**
-     * MediaStore.Downloads 保存：
-     * 1. 从原名开始尝试，已存在时跳过，绝不预删用户文件；
-     * 2. 冲突或 insert 失败则在扩展名前加时间戳防重（最多 3 次）；
-     * 3. 均失败返回 null（上层报错，不再兜底私有目录）。
-     */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun saveViaMediaStore(context: Context, fileName: String, subDir: String, source: File): String? {
         val resolver = context.contentResolver
@@ -186,7 +128,6 @@ object DownloadSaver {
         } else {
             "${Environment.DIRECTORY_DOWNLOADS}/$subDir"
         }
-        // 候选：原名 → 时间戳防重名（base.apk → base_20260812165000.apk → base_..._2.apk）
         val candidates = buildList {
             add(fileName)
             repeat(3) { i -> add(timestampedName(fileName, i)) }
@@ -220,7 +161,6 @@ object DownloadSaver {
         return null
     }
 
-    /** 在文件名扩展名前加时间戳防重：base.apk → base_20260812165000.apk */
     private fun timestampedName(fileName: String, attempt: Int): String {
         val dot = fileName.lastIndexOf('.')
         val base = if (dot > 0) fileName.substring(0, dot) else fileName
@@ -229,7 +169,6 @@ object DownloadSaver {
         return if (attempt == 0) "${base}_$ts$ext" else "${base}_${ts}_${attempt + 1}$ext"
     }
 
-    /** 同路径同名对象存在时换一个候选名，绝不删除既有内容。 */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun mediaStoreNameExists(
         resolver: ContentResolver,
@@ -270,11 +209,6 @@ object DownloadSaver {
         dest.absolutePath
     }.getOrNull()
 
-    /**
-     * 删除已保存的本地文件（配合任务删除）。
-     * @param savePath 保存时返回的 MediaStore uri 字符串 / SAF 文档 uri / 文件绝对路径
-     * @return 是否删除成功（false 表示未找到或删除失败）
-     */
     fun delete(context: Context, savePath: String): Boolean {
         if (savePath.isBlank()) return false
         return runCatching {
@@ -293,25 +227,17 @@ object DownloadSaver {
         }.getOrDefault(false)
     }
 
-    /**
-     * SAF 文档删除：多级 fallback，兼容国产 ROM 对 tree 授权子文档删除的权限/实现差异。
-     * ① resolver.delete（标准） → ② deleteDocument（重试） → ③ 还原 tree Uri 逐级查找删除。
-     */
     private fun deleteSafDocument(context: Context, docUri: android.net.Uri): Boolean {
-        // ① 标准删除
         if (runCatching { context.contentResolver.delete(docUri, null, null) > 0 }.getOrDefault(false)) {
             return true
         }
-        // ② DocumentsContract.deleteDocument 重试
         if (runCatching { DocumentsContract.deleteDocument(context.contentResolver, docUri) }.getOrDefault(false)) {
             return true
         }
-        // ③ 还原 tree Uri（持久授权域），沿相对路径逐级 findFile 后删除
         return runCatching {
             val segments = docUri.pathSegments
             val treeIdx = segments.indexOf("tree")
             if (treeIdx < 0 || segments.size < treeIdx + 2) return@runCatching false
-            // docUri: /tree/{treeId}/document/{fileDocId} → treeUri: /tree/{treeId}
             val treeUri = docUri.buildUpon().path("/" + segments.subList(0, treeIdx + 2).joinToString("/")).build()
             val treeDocId = android.net.Uri.decode(segments[treeIdx + 1])
             val fileDocId = DocumentsContract.getDocumentId(docUri)
@@ -340,7 +266,6 @@ object DownloadSaver {
                 } ?: return@runCatching false
                 val id = foundId ?: return@runCatching false
                 if (i == relParts.lastIndex) {
-                    // 最后一层即目标文件：基于 tree 构造文档 uri 删除
                     val target = DocumentsContract.buildDocumentUriUsingTree(treeUri, id)
                     return@runCatching runCatching { resolver.delete(target, null, null) > 0 }
                         .getOrElse { DocumentsContract.deleteDocument(resolver, target) }

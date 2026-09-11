@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.screens
 
 import androidx.compose.animation.AnimatedContent
@@ -44,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Card
@@ -85,16 +69,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import com.yunx.app.ui.viewmodel.DriveQuotaViewModel
+import com.yunx.app.ui.theme.HoneycombCell
+import com.yunx.app.ui.theme.HoneycombGrid
+import com.yunx.app.ui.theme.ThemeController
 import com.yunx.app.ui.viewmodel.SimpleAccountViewModel
 import com.yunx.app.ui.viewmodel.Pan123CloudViewModel
 import com.yunx.app.ui.viewmodel.QuarkCloudViewModel
 import com.yunx.app.ui.viewmodel.UCCoudViewModel
 import com.yunx.app.ui.viewmodel.XunleiCloudViewModel
 
-/**
- * 网盘账号展示模型。
- * TODO: 迅雷 / UC 后续接入 cookie 登录后，isLoggedIn 由真实登录态驱动。
- */
 private data class DriveAccount(
     val id: String,
     val name: String,
@@ -103,11 +86,6 @@ private data class DriveAccount(
     val isLoggedIn: Boolean = false
 )
 
-/**
- * 网盘页：
- * - 夸克未登录：点击进入登录页；
- * - 夸克已登录：副标题显示昵称，点击弹出账号信息底部弹窗（可查看 Cookie / 退出登录）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DriveScreen(
@@ -118,28 +96,19 @@ fun DriveScreen(
     baiduAccount: BaiduAccountEntity?,
     c139Account: C139AccountEntity?,
     pan123Account: Pan123AccountEntity?,
-    /** 吸析At 新增：蓝奏云 / 奶牛快传 / 小飞机网盘（简单 Cookie 账号，登录可选） */
     lanzouAccount: SimpleAccountEntity?,
     cowAccount: SimpleAccountEntity?,
     feijiAccount: SimpleAccountEntity?,
     simpleViewModel: SimpleAccountViewModel,
-    /** 夸克云盘浏览 ViewModel（网盘 Tab 内切换展示，非全屏） */
     quarkCloudViewModel: QuarkCloudViewModel,
-    /** UC 网盘云盘浏览 ViewModel */
     ucCloudViewModel: UCCoudViewModel,
-    /** 迅雷网盘云盘浏览 ViewModel */
     xunleiCloudViewModel: XunleiCloudViewModel,
-    /** 百度网盘云盘浏览 ViewModel */
     baiduCloudViewModel: BaiduCloudViewModel,
-    /** 139 网盘云盘浏览 ViewModel */
     c139CloudViewModel: C139CloudViewModel,
-    /** 123 云盘浏览 ViewModel */
     pan123CloudViewModel: Pan123CloudViewModel,
-    /** 网盘空间详情 ViewModel（顶部空间总览） */
     driveQuotaViewModel: DriveQuotaViewModel,
     onQuarkLogin: () -> Unit,
     onQuarkLogout: () -> Unit,
-    /** 夸克云盘下载入队后切换到「下载」Tab */
     onDownloadStarted: () -> Unit = {},
     onUCLogin: () -> Unit,
     onUCLogout: () -> Unit,
@@ -157,7 +126,6 @@ fun DriveScreen(
     onCowLogout: () -> Unit,
     onFeijiLogin: () -> Unit,
     onFeijiLogout: () -> Unit,
-    /** 免登录解析型网盘（城通/文叔叔）：点击跳转到「解析」页粘贴链接 */
     onGoResolve: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -168,20 +136,13 @@ fun DriveScreen(
     var showC139Sheet by remember { mutableStateOf(false) }
     var showPan123Sheet by remember { mutableStateOf(false) }
     var showSimpleSheetFor by remember { mutableStateOf<String?>(null) }
-    // 夸克云盘浏览：网盘 Tab 内切换（非全屏），切 Tab 再回来仍保留
     var showCloud by rememberSaveable { mutableStateOf(false) }
-    // UC 网盘云盘浏览：网盘 Tab 内切换（非全屏）
     var showUCCloud by rememberSaveable { mutableStateOf(false) }
-    // 迅雷网盘云盘浏览：网盘 Tab 内切换（非全屏）
     var showXunleiCloud by rememberSaveable { mutableStateOf(false) }
-    // 百度网盘云盘浏览：网盘 Tab 内切换（非全屏）
     var showBaiduCloud by rememberSaveable { mutableStateOf(false) }
-    // 139 网盘云盘浏览：网盘 Tab 内切换（非全屏）
     var showC139Cloud by rememberSaveable { mutableStateOf(false) }
-    // 123 云盘浏览：网盘 Tab 内切换（非全屏）
     var showPan123Cloud by rememberSaveable { mutableStateOf(false) }
 
-    // 夸克：登录态由数据库驱动；已登录则副标题显示昵称
     val quark = DriveAccount(
         id = "quark",
         name = "夸克网盘",
@@ -245,7 +206,6 @@ fun DriveScreen(
         avatarText = "飞",
         isLoggedIn = feijiAccount != null
     )
-    // v1.5.1 新增：城通 / 文叔叔（免登录解析型，无云盘账号体系 → 点击直达解析页）
     val ctfile = DriveAccount(
         id = "ctfile",
         name = "城通网盘",
@@ -259,14 +219,116 @@ fun DriveScreen(
         avatarText = "文"
     )
 
-    // 进入网盘页加载空间详情（仅已登录平台）
+    val honeycombCells = listOf(
+        HoneycombCell(
+            avatarText = quark.avatarText,
+            label = quark.name,
+            isLoggedIn = quark.isLoggedIn,
+            onClick = if (quark.isLoggedIn) {
+                { showCloud = true }
+            } else {
+                onQuarkLogin
+            }
+        ),
+        HoneycombCell(
+            avatarText = uc.avatarText,
+            label = uc.name,
+            isLoggedIn = uc.isLoggedIn,
+            onClick = if (uc.isLoggedIn) {
+                { showUCCloud = true }
+            } else {
+                onUCLogin
+            }
+        ),
+        HoneycombCell(
+            avatarText = xunlei.avatarText,
+            label = xunlei.name,
+            isLoggedIn = xunlei.isLoggedIn,
+            onClick = if (xunlei.isLoggedIn) {
+                { showXunleiCloud = true }
+            } else {
+                onXunleiLogin
+            }
+        ),
+        HoneycombCell(
+            avatarText = baidu.avatarText,
+            label = baidu.name,
+            isLoggedIn = baidu.isLoggedIn,
+            onClick = if (baidu.isLoggedIn) {
+                { showBaiduCloud = true }
+            } else {
+                onBaiduLogin
+            }
+        ),
+        HoneycombCell(
+            avatarText = c139.avatarText,
+            label = c139.name,
+            isLoggedIn = c139.isLoggedIn,
+            onClick = if (c139.isLoggedIn) {
+                { showC139Cloud = true }
+            } else {
+                onC139Login
+            }
+        ),
+        HoneycombCell(
+            avatarText = pan123.avatarText,
+            label = pan123.name,
+            isLoggedIn = pan123.isLoggedIn,
+            onClick = if (pan123.isLoggedIn) {
+                { showPan123Cloud = true }
+            } else {
+                onPan123Login
+            }
+        ),
+        HoneycombCell(
+            avatarText = lanzou.avatarText,
+            label = lanzou.name,
+            isLoggedIn = lanzou.isLoggedIn,
+            onClick = if (lanzou.isLoggedIn) {
+                { showSimpleSheetFor = "lanzou" }
+            } else {
+                onLanzouLogin
+            }
+        ),
+        HoneycombCell(
+            avatarText = cow.avatarText,
+            label = cow.name,
+            isLoggedIn = cow.isLoggedIn,
+            onClick = if (cow.isLoggedIn) {
+                { showSimpleSheetFor = "cowtransfer" }
+            } else {
+                onCowLogin
+            }
+        ),
+        HoneycombCell(
+            avatarText = feiji.avatarText,
+            label = feiji.name,
+            isLoggedIn = feiji.isLoggedIn,
+            onClick = if (feiji.isLoggedIn) {
+                { showSimpleSheetFor = "feiji" }
+            } else {
+                onFeijiLogin
+            }
+        ),
+        HoneycombCell(
+            avatarText = ctfile.avatarText,
+            label = ctfile.name,
+            isLoggedIn = false,
+            onClick = onGoResolve
+        ),
+        HoneycombCell(
+            avatarText = wenshushu.avatarText,
+            label = wenshushu.name,
+            isLoggedIn = false,
+            onClick = onGoResolve
+        )
+    )
+
     LaunchedEffect(Unit) {
         driveQuotaViewModel.loadAll()
     }
-    // 下拉刷新状态：绑定空间配额加载中状态
     val isRefreshing by driveQuotaViewModel.loading.collectAsState()
 
-    // 账号列表 ↔ 夸克云盘 ↔ UC 云盘 ↔ 迅雷云盘 ↔ 百度云盘 ↔ 139 云盘 ↔ 123 云盘：平滑过渡（淡入 + 轻微缩放，不僵硬）
     AnimatedContent(
         targetState = when {
             showCloud -> 1
@@ -325,6 +387,25 @@ fun DriveScreen(
                 onRefresh = { driveQuotaViewModel.loadAll() },
                 modifier = Modifier.fillMaxSize()
             ) {
+                if (ThemeController.driveViewStyle == 1) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .nestedScroll(scrollBehavior.nestedScrollConnection)
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "登录后即可自动携带凭证解析与下载",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 12.dp)
+                        )
+                        HoneycombGrid(cells = honeycombCells)
+                        Spacer(modifier = Modifier.height(24.dp))
+                    }
+                } else {
                 LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
@@ -481,7 +562,6 @@ fun DriveScreen(
                         }
                     )
                 }
-                // 城通网盘 / 文叔叔：免登录解析入口（v1.5.1，点击直达「解析」页）
                 item(key = ctfile.id) {
                     DriveAccountCard(
                         account = ctfile,
@@ -496,10 +576,10 @@ fun DriveScreen(
                 }
             }
             }
+            }
         }
     }
 
-    // 已登录夸克：点击卡片弹出账号信息底部弹窗
     if (showQuarkSheet && quarkAccount != null) {
         QuarkAccountSheet(
             account = quarkAccount,
@@ -511,7 +591,6 @@ fun DriveScreen(
         )
     }
 
-    // 已登录 UC：点击卡片弹出账号信息底部弹窗
     if (showUCSheet && ucAccount != null) {
         UCAccountSheet(
             account = ucAccount,
@@ -523,7 +602,6 @@ fun DriveScreen(
         )
     }
 
-    // 已登录迅雷：点击卡片弹出账号信息底部弹窗
     if (showXunleiSheet && xunleiAccount != null) {
         XunleiAccountSheet(
             account = xunleiAccount,
@@ -535,7 +613,6 @@ fun DriveScreen(
         )
     }
 
-    // 已登录百度：点击卡片弹出账号信息底部弹窗
     if (showBaiduSheet && baiduAccount != null) {
         BaiduAccountSheet(
             account = baiduAccount,
@@ -547,7 +624,6 @@ fun DriveScreen(
         )
     }
 
-    // 已登录 139：点击卡片弹出账号信息底部弹窗
     if (showC139Sheet && c139Account != null) {
         C139AccountSheet(
             account = c139Account,
@@ -559,7 +635,6 @@ fun DriveScreen(
         )
     }
 
-    // 已登录 123：点击卡片弹出账号信息底部弹窗
     if (showPan123Sheet && pan123Account != null) {
         Pan123AccountSheet(
             account = pan123Account,
@@ -571,7 +646,6 @@ fun DriveScreen(
         )
     }
 
-    // 吸析At 新增：蓝奏云 / 奶牛快传 / 小飞机账号弹窗（退出登录）
     val simpleSheetAccount = when (showSimpleSheetFor) {
         "lanzou" -> lanzouAccount
         "cowtransfer" -> cowAccount
@@ -601,7 +675,6 @@ fun DriveScreen(
     }
 }
 
-/** 简单 Cookie 网盘账号信息底部弹窗（昵称 + Cookie 摘要 + 退出登录） */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SimpleAccountSheet(
@@ -673,10 +746,8 @@ private fun SimpleAccountSheet(
 @Composable
 private fun DriveAccountCard(
     account: DriveAccount,
-    /** 网盘空间详情（已登录且有数据时在卡片内显示进度条）；null 不显示 */
     quota: QuotaInfo? = null,
     onClick: (() -> Unit)? = null,
-    /** 已登录时右侧「三个点」更多按钮（打开账号弹窗）；null 则不显示 */
     onMoreClick: (() -> Unit)? = null
 ) {
     val cardShape = MaterialTheme.shapes.large
@@ -721,7 +792,6 @@ private fun DriveAccountCardContent(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 品牌头像（暂用首字母，后续可替换为品牌图标）
         Surface(
             modifier = Modifier.size(48.dp),
             shape = CircleShape,
@@ -757,7 +827,6 @@ private fun DriveAccountCardContent(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            // 已登录且有空间数据：卡片内展示剩余空间进度条（出现时淡入 + 纵向展开，避免突兀）
             AnimatedVisibility(
                 visible = account.isLoggedIn && quota != null,
                 enter = fadeIn(tween(300)) + expandVertically(
@@ -792,7 +861,6 @@ private fun DriveAccountCardContent(
     }
 }
 
-/** 网盘卡片内空间进度条：已用 / 总容量 + 细进度条 */
 @Composable
 private fun QuotaInlineBar(quota: QuotaInfo) {
     val ratio = if (quota.total > 0) {
@@ -840,7 +908,6 @@ private fun LoginBadge(isLoggedIn: Boolean) {
     }
 }
 
-/** 字节数格式化：B / KB / MB / GB / TB */
 private fun formatBytes(bytes: Long): String {
     if (bytes <= 0) return "0 B"
     val units = arrayOf("B", "KB", "MB", "GB", "TB")

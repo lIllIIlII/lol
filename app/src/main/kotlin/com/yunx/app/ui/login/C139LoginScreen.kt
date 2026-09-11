@@ -1,21 +1,3 @@
-/*
- * YunX (云析) - A network drive share-link parser and high-speed downloader for Android.
- * Copyright (C) 2026 CYQawa
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
-
 package com.yunx.app.ui.login
 
 import android.graphics.Bitmap
@@ -80,13 +62,6 @@ import kotlinx.coroutines.launch
 
 private const val TAG = "C139Login"
 
-/**
- * 139 网盘（和彩云）登录页：
- * - WebView 加载 yun.139.com，由用户手动登录（短信/验证码/风控由官网处理）；
- * - 自动登录检测：登录完成后自动从 CookieManager 提取 mail.10086.cn / yun.139.com 的 Cookie
- *   （需含 Os_SSo_Sid + RMKEY，右上角「保存」保留作手动兜底）；
- * - 支持手动粘贴 Cookie（需含 Os_SSo_Sid= 与 RMKEY=）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun C139LoginScreen(
@@ -117,7 +92,6 @@ fun C139LoginScreen(
             settings.loadWithOverviewMode = true
             settings.layoutAlgorithm = WebSettings.LayoutAlgorithm.NARROW_COLUMNS
             setInitialScale(0)
-            // 139 网盘用手机 UA（移动版页面在 WebView 渲染稳定；PC 版 SPA 会因环境检测白屏）
             settings.userAgentString = WebSettings.getDefaultUserAgent(context)
             webViewClient = object : WebViewClient() {
                 override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
@@ -128,7 +102,6 @@ fun C139LoginScreen(
                 override fun onPageFinished(view: WebView?, url: String?) {
                     Log.d(TAG, "onPageFinished: ${LogRedactor.url(url)}")
                     isLoading = false
-                    // 强制覆盖页面 viewport：适配屏幕宽度 + 允许双指缩放（139 移动版页面 viewport 缺失或限制缩放时生效）
                     view?.evaluateJavascript(
                         "(function(){var m=document.querySelector('meta[name=\"viewport\"]');" +
                             "var c='width=device-width,initial-scale=1.0,maximum-scale=5.0,user-scalable=yes';" +
@@ -158,7 +131,6 @@ fun C139LoginScreen(
                 @RequiresApi(Build.VERSION_CODES.O)
                 override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
                     Log.e(TAG, "onRenderProcessGone: didCrash=${detail?.didCrash()} priority=${detail?.rendererPriorityAtExit()}")
-                    // 渲染进程崩溃（139 PC 版页面较重/低端机内存不足）：提示并自动重载一次
                     isLoading = false
                     SnackbarController.show("页面加载异常，正在重试…")
                     view?.post { view.reload() }
@@ -170,7 +142,6 @@ fun C139LoginScreen(
         }
     }
 
-    // 自动登录检测：网页内登录完成（Cookie 出现）即自动保存登录；右上角「保存」保留作手动兜底
     rememberWebLoginAutoDetect(
         sampleCredential = { C139Constants.extractCookies { CookieManager.getInstance().getCookie(it) } },
         isPlausible = { C139Constants.isValidCookie(it) },
@@ -180,15 +151,12 @@ fun C139LoginScreen(
         onAutoSaved = onSaved
     )
 
-    // 页面销毁时释放 WebView
     DisposableEffect(Unit) {
         onDispose { webView.destroy() }
     }
 
-    // 系统返回键 → 返回主页（保存中禁用）
     BackHandler(enabled = !isSaving && !isSavingManual) { onBack() }
 
-    // 全局 Snackbar 宿主
     val snackbarHostState = rememberGlobalSnackbarHostState()
 
     Scaffold(
@@ -262,7 +230,6 @@ fun C139LoginScreen(
         }
     }
 
-    // 登录教程弹窗
     if (showTutorial) {
         AlertDialog(
             onDismissRequest = { showTutorial = false },
@@ -300,7 +267,6 @@ fun C139LoginScreen(
         )
     }
 
-    // 手动输入 Cookie 弹窗
     if (showCookieDialog) {
         AlertDialog(
             onDismissRequest = { if (!isSavingManual) showCookieDialog = false },
