@@ -104,7 +104,6 @@ import com.yunx.app.R
 import com.yunx.app.data.prefs.SettingsRepository
 import com.yunx.app.ui.SnackbarController
 import com.yunx.app.ui.theme.GlassWallpaper
-import com.yunx.app.ui.theme.HoneycombPreview
 import com.yunx.app.ui.theme.ThemeController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -477,50 +476,6 @@ fun ThemeScreen(
                             )
                         }
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            SectionLabel("网盘视图")
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "「网盘」页的布局样式",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SmoothFilterChip(
-                            selected = ThemeController.driveViewStyle == 0,
-                            label = "列表卡片",
-                            onClick = { ThemeController.setDriveViewStyle(context, 0) },
-                            modifier = Modifier.weight(1f)
-                        )
-                        SmoothFilterChip(
-                            selected = ThemeController.driveViewStyle == 1,
-                            label = "蜂窝六边形",
-                            onClick = { ThemeController.setDriveViewStyle(context, 1) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(14.dp))
-                    HoneycombPreview(selected = ThemeController.driveViewStyle == 1)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "蜂窝式视图：网盘以六边形蜂巢排布，更紧凑直观。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
 

@@ -24,10 +24,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.Card
@@ -69,9 +66,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Button
 import com.yunx.app.ui.viewmodel.DriveQuotaViewModel
-import com.yunx.app.ui.theme.HoneycombCell
-import com.yunx.app.ui.theme.HoneycombGrid
-import com.yunx.app.ui.theme.ThemeController
 import com.yunx.app.ui.viewmodel.SimpleAccountViewModel
 import com.yunx.app.ui.viewmodel.Pan123CloudViewModel
 import com.yunx.app.ui.viewmodel.QuarkCloudViewModel
@@ -99,6 +93,8 @@ fun DriveScreen(
     lanzouAccount: SimpleAccountEntity?,
     cowAccount: SimpleAccountEntity?,
     feijiAccount: SimpleAccountEntity?,
+    ctfileAccount: SimpleAccountEntity?,
+    wssAccount: SimpleAccountEntity?,
     simpleViewModel: SimpleAccountViewModel,
     quarkCloudViewModel: QuarkCloudViewModel,
     ucCloudViewModel: UCCoudViewModel,
@@ -126,6 +122,10 @@ fun DriveScreen(
     onCowLogout: () -> Unit,
     onFeijiLogin: () -> Unit,
     onFeijiLogout: () -> Unit,
+    onCtfileLogin: () -> Unit,
+    onCtfileLogout: () -> Unit,
+    onWssLogin: () -> Unit,
+    onWssLogout: () -> Unit,
     onGoResolve: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -136,6 +136,7 @@ fun DriveScreen(
     var showC139Sheet by remember { mutableStateOf(false) }
     var showPan123Sheet by remember { mutableStateOf(false) }
     var showSimpleSheetFor by remember { mutableStateOf<String?>(null) }
+    var showSimpleCloudFor by rememberSaveable { mutableStateOf<String?>(null) }
     var showCloud by rememberSaveable { mutableStateOf(false) }
     var showUCCloud by rememberSaveable { mutableStateOf(false) }
     var showXunleiCloud by rememberSaveable { mutableStateOf(false) }
@@ -209,119 +210,16 @@ fun DriveScreen(
     val ctfile = DriveAccount(
         id = "ctfile",
         name = "城通网盘",
-        description = "免登录解析下载，支持访问密码",
-        avatarText = "城"
+        description = ctfileAccount?.nickname?.takeIf { it.isNotBlank() } ?: "登录可选，支持解析下载",
+        avatarText = "城",
+        isLoggedIn = ctfileAccount != null
     )
     val wenshushu = DriveAccount(
         id = "wenshushu",
         name = "文叔叔",
-        description = "免登录解析下载，支持文件夹浏览",
-        avatarText = "文"
-    )
-
-    val honeycombCells = listOf(
-        HoneycombCell(
-            avatarText = quark.avatarText,
-            label = quark.name,
-            isLoggedIn = quark.isLoggedIn,
-            onClick = if (quark.isLoggedIn) {
-                { showCloud = true }
-            } else {
-                onQuarkLogin
-            }
-        ),
-        HoneycombCell(
-            avatarText = uc.avatarText,
-            label = uc.name,
-            isLoggedIn = uc.isLoggedIn,
-            onClick = if (uc.isLoggedIn) {
-                { showUCCloud = true }
-            } else {
-                onUCLogin
-            }
-        ),
-        HoneycombCell(
-            avatarText = xunlei.avatarText,
-            label = xunlei.name,
-            isLoggedIn = xunlei.isLoggedIn,
-            onClick = if (xunlei.isLoggedIn) {
-                { showXunleiCloud = true }
-            } else {
-                onXunleiLogin
-            }
-        ),
-        HoneycombCell(
-            avatarText = baidu.avatarText,
-            label = baidu.name,
-            isLoggedIn = baidu.isLoggedIn,
-            onClick = if (baidu.isLoggedIn) {
-                { showBaiduCloud = true }
-            } else {
-                onBaiduLogin
-            }
-        ),
-        HoneycombCell(
-            avatarText = c139.avatarText,
-            label = c139.name,
-            isLoggedIn = c139.isLoggedIn,
-            onClick = if (c139.isLoggedIn) {
-                { showC139Cloud = true }
-            } else {
-                onC139Login
-            }
-        ),
-        HoneycombCell(
-            avatarText = pan123.avatarText,
-            label = pan123.name,
-            isLoggedIn = pan123.isLoggedIn,
-            onClick = if (pan123.isLoggedIn) {
-                { showPan123Cloud = true }
-            } else {
-                onPan123Login
-            }
-        ),
-        HoneycombCell(
-            avatarText = lanzou.avatarText,
-            label = lanzou.name,
-            isLoggedIn = lanzou.isLoggedIn,
-            onClick = if (lanzou.isLoggedIn) {
-                { showSimpleSheetFor = "lanzou" }
-            } else {
-                onLanzouLogin
-            }
-        ),
-        HoneycombCell(
-            avatarText = cow.avatarText,
-            label = cow.name,
-            isLoggedIn = cow.isLoggedIn,
-            onClick = if (cow.isLoggedIn) {
-                { showSimpleSheetFor = "cowtransfer" }
-            } else {
-                onCowLogin
-            }
-        ),
-        HoneycombCell(
-            avatarText = feiji.avatarText,
-            label = feiji.name,
-            isLoggedIn = feiji.isLoggedIn,
-            onClick = if (feiji.isLoggedIn) {
-                { showSimpleSheetFor = "feiji" }
-            } else {
-                onFeijiLogin
-            }
-        ),
-        HoneycombCell(
-            avatarText = ctfile.avatarText,
-            label = ctfile.name,
-            isLoggedIn = false,
-            onClick = onGoResolve
-        ),
-        HoneycombCell(
-            avatarText = wenshushu.avatarText,
-            label = wenshushu.name,
-            isLoggedIn = false,
-            onClick = onGoResolve
-        )
+        description = wssAccount?.nickname?.takeIf { it.isNotBlank() } ?: "登录可选，支持解析下载",
+        avatarText = "文",
+        isLoggedIn = wssAccount != null
     )
 
     LaunchedEffect(Unit) {
@@ -387,25 +285,6 @@ fun DriveScreen(
                 onRefresh = { driveQuotaViewModel.loadAll() },
                 modifier = Modifier.fillMaxSize()
             ) {
-                if (ThemeController.driveViewStyle == 1) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .nestedScroll(scrollBehavior.nestedScrollConnection)
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "登录后即可自动携带凭证解析与下载",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                        HoneycombGrid(cells = honeycombCells)
-                        Spacer(modifier = Modifier.height(24.dp))
-                    }
-                } else {
                 LazyColumn(
                 modifier = modifier
                     .fillMaxSize()
@@ -521,7 +400,7 @@ fun DriveScreen(
                     DriveAccountCard(
                         account = lanzou,
                         onClick = if (lanzou.isLoggedIn) {
-                            { showSimpleSheetFor = "lanzou" }
+                            { showSimpleCloudFor = "lanzou" }
                         } else {
                             onLanzouLogin
                         },
@@ -536,7 +415,7 @@ fun DriveScreen(
                     DriveAccountCard(
                         account = cow,
                         onClick = if (cow.isLoggedIn) {
-                            { showSimpleSheetFor = "cowtransfer" }
+                            { showSimpleCloudFor = "cowtransfer" }
                         } else {
                             onCowLogin
                         },
@@ -551,7 +430,7 @@ fun DriveScreen(
                     DriveAccountCard(
                         account = feiji,
                         onClick = if (feiji.isLoggedIn) {
-                            { showSimpleSheetFor = "feiji" }
+                            { showSimpleCloudFor = "feiji" }
                         } else {
                             onFeijiLogin
                         },
@@ -565,16 +444,33 @@ fun DriveScreen(
                 item(key = ctfile.id) {
                     DriveAccountCard(
                         account = ctfile,
-                        onClick = onGoResolve
+                        onClick = if (ctfile.isLoggedIn) {
+                            { showSimpleCloudFor = "ctfile" }
+                        } else {
+                            onCtfileLogin
+                        },
+                        onMoreClick = if (ctfile.isLoggedIn) {
+                            { showSimpleSheetFor = "ctfile" }
+                        } else {
+                            null
+                        }
                     )
                 }
                 item(key = wenshushu.id) {
                     DriveAccountCard(
                         account = wenshushu,
-                        onClick = onGoResolve
+                        onClick = if (wenshushu.isLoggedIn) {
+                            { showSimpleCloudFor = "wenshushu" }
+                        } else {
+                            onWssLogin
+                        },
+                        onMoreClick = if (wenshushu.isLoggedIn) {
+                            { showSimpleSheetFor = "wenshushu" }
+                        } else {
+                            null
+                        }
                     )
                 }
-            }
             }
             }
         }
@@ -650,6 +546,8 @@ fun DriveScreen(
         "lanzou" -> lanzouAccount
         "cowtransfer" -> cowAccount
         "feiji" -> feijiAccount
+        "ctfile" -> ctfileAccount
+        "wenshushu" -> wssAccount
         else -> null
     }
     if (showSimpleSheetFor != null && simpleSheetAccount != null) {
@@ -657,6 +555,8 @@ fun DriveScreen(
         val displayName = when (platform) {
             "lanzou" -> "蓝奏云"
             "cowtransfer" -> "奶牛快传"
+            "ctfile" -> "城通网盘"
+            "wenshushu" -> "文叔叔"
             else -> "小飞机网盘"
         }
         SimpleAccountSheet(
@@ -667,10 +567,19 @@ fun DriveScreen(
                     "lanzou" -> onLanzouLogout()
                     "cowtransfer" -> onCowLogout()
                     "feiji" -> onFeijiLogout()
+                    "ctfile" -> onCtfileLogout()
+                    "wenshushu" -> onWssLogout()
                 }
                 showSimpleSheetFor = null
             },
             onDismiss = { showSimpleSheetFor = null }
+        )
+    }
+
+    showSimpleCloudFor?.let { platform ->
+        SimpleCloudScreen(
+            platform = platform,
+            onExit = { showSimpleCloudFor = null }
         )
     }
 }
@@ -706,28 +615,10 @@ private fun SimpleAccountSheet(
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = account.nickname.takeIf { it.isNotBlank() } ?: "已登录",
+                text = account.nickname.takeIf { it.isNotBlank() } ?: "已登录，点击卡片可进入网盘",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(14.dp)) {
-                    Text("Cookie", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = account.cookie.take(120) + if (account.cookie.length > 120) "…" else "",
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
             Spacer(modifier = Modifier.height(20.dp))
             Button(
                 onClick = onLogout,

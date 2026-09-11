@@ -24,11 +24,11 @@ object ShareLinkParser {
         RegexOption.IGNORE_CASE
     )
     private val lanzouShareIdRegex = Regex(
-        """(?:[0-9A-Za-z]+\.)?(?:lanzo[u]?[a-z]{0,2})\.(?:com|cn|net)/(?:s/)?([A-Za-z][0-9A-Za-z_-]{4,})""",
+        """(?:[0-9A-Za-z]+\.)?(?:lanzo[u]?[a-z]{0,2}|lan(?:pw|pv|zn|zr))\.(?:com|cn|net)/(?:s/)?([A-Za-z][0-9A-Za-z_-]{4,})""",
         RegexOption.IGNORE_CASE
     )
     private val cowShareIdRegex = Regex("""cowtransfer\.com/s/([0-9A-Za-z-]{10,})""", RegexOption.IGNORE_CASE)
-    private val feijiShareIdRegex = Regex("""feijipan\.com/s/([0-9A-Za-z-]{4,})""", RegexOption.IGNORE_CASE)
+    private val feijiShareIdRegex = Regex("""feiji(?:pan|x)\.com/s/([0-9A-Za-z-]{4,})""", RegexOption.IGNORE_CASE)
     private val ctfileShareIdRegex = Regex(
         """(?:[a-z0-9]+\.)?(?:ctfile|pipipan|545c)\.com/(f|file|dir)/([a-zA-Z0-9-]{5,})""",
         RegexOption.IGNORE_CASE

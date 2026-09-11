@@ -51,6 +51,7 @@ import com.yunx.app.ui.SnackbarController
 import com.yunx.app.ui.rememberGlobalSnackbarHostState
 import com.yunx.app.ui.viewmodel.SimpleAccountViewModel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 data class GenericLoginConfig(
     val platform: String,
@@ -59,6 +60,7 @@ data class GenericLoginConfig(
     val cookieUrls: List<String>,
     val cookieKeys: List<String>,
     val userAgent: String? = null,
+    val localStorageProbe: String? = null,
     val tutorial: String
 )
 
@@ -66,19 +68,23 @@ object GenericLoginConfigs {
     val lanzou = GenericLoginConfig(
         platform = SimpleNetdisk.LANZOU,
         title = "蓝奏云登录",
-        loginUrl = "https://pc.woozooo.com/account.php?action=login",
-        cookieUrls = listOf("https://pc.woozooo.com/", "https://www.lanzou.com/", "https://pan.lanzou.com/"),
+        loginUrl = "https://accounts.woozooo.com/accounts.php?action=login&ref=pc.woozooo.com",
+        cookieUrls = listOf(
+            "https://accounts.woozooo.com/",
+            "https://pc.woozooo.com/",
+            "https://up.woozooo.com/"
+        ),
         cookieKeys = listOf("phpdisk_info"),
-        tutorial = "1. 在页面中输入蓝奏云账号密码完成登录\n2. 登录成功后将自动保存登录态\n3. 登录后解析蓝奏云链接更稳定\n\n说明：不登录也可直接解析蓝奏云分享链接，登录仅用于提升可靠性。"
+        tutorial = "1. 在页面中输入蓝奏云账号密码完成登录\n2. 登录成功后将自动保存登录态\n3. 登录后在网盘页点击蓝奏云卡片即可进入网盘\n\n说明：不登录也可直接解析蓝奏云分享链接，登录仅用于提升可靠性。"
     )
     val cowTransfer = GenericLoginConfig(
         platform = SimpleNetdisk.COWTRANSFER,
         title = "奶牛快传登录",
-        loginUrl = "https://cowtransfer.com/",
+        loginUrl = "https://cowtransfer.com/login",
         cookieUrls = listOf("https://cowtransfer.com/", "https://www.cowtransfer.com/"),
         cookieKeys = listOf("session", "user", "auth", "token", "uid"),
         userAgent = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-        tutorial = "1. 打开奶牛快传官网，点击右上角「登录」完成登录\n2. 登录成功后会自动保存，也可点击右上角「保存」\n\n说明：不登录也可直接解析奶牛快传分享链接，登录可延长分享有效期。页面加载需数秒（官网脚本较大）。"
+        tutorial = "1. 在页面中输入手机号验证码完成登录\n2. 登录成功后会自动保存，也可点击右上角「保存」\n3. 登录后在网盘页点击奶牛快传卡片即可进入网盘\n\n说明：不登录也可直接解析奶牛快传分享链接，登录可延长分享有效期。页面加载需数秒（官网脚本较大）。"
     )
     val feiji = GenericLoginConfig(
         platform = SimpleNetdisk.FEIJI,
@@ -87,7 +93,24 @@ object GenericLoginConfigs {
         cookieUrls = listOf("https://www.feijipan.com/", "https://www.feijix.com/"),
         cookieKeys = listOf("token", "session", "user", "auth"),
         userAgent = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36",
-        tutorial = "1. 打开小飞机网盘官网（feijipan.com），点击登录入口完成登录\n2. 登录成功后回到本页点击「保存」\n\n说明：不登录也可直接解析小飞机网盘分享链接。页面为网页应用，首次加载需数秒。"
+        tutorial = "1. 打开小飞机网盘官网（feijipan.com），点击登录入口完成登录\n2. 登录成功后回到本页点击「保存」\n3. 登录后在网盘页点击小飞机卡片即可进入网盘\n\n说明：不登录也可直接解析小飞机网盘分享链接。页面为网页应用，首次加载需数秒。"
+    )
+    val ctfile = GenericLoginConfig(
+        platform = SimpleNetdisk.CTFILE,
+        title = "城通网盘登录",
+        loginUrl = "https://www.ctfile.com/login",
+        cookieUrls = listOf("https://www.ctfile.com/", "https://user.ctfile.com/"),
+        cookieKeys = listOf("ylogin", "sid", "session"),
+        tutorial = "1. 在页面中输入城通网盘账号密码完成登录\n2. 登录成功后会自动保存，也可点击右上角「保存」\n3. 登录后在网盘页点击城通网盘卡片即可进入网盘\n\n说明：不登录也可直接解析城通网盘分享链接，登录仅用于在应用内管理文件。"
+    )
+    val wenshushu = GenericLoginConfig(
+        platform = SimpleNetdisk.WENSHUSHU,
+        title = "文叔叔登录",
+        loginUrl = "https://www.wenshushu.cn/login",
+        cookieUrls = listOf("https://www.wenshushu.cn/", "https://wenshushu.cn/"),
+        cookieKeys = listOf("token", "session", "uid", "sid"),
+        localStorageProbe = "(function(){var h=[];try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var v=localStorage.getItem(k);if(k&&v&&v.length>20&&/token|auth/i.test(k)){h.push(k+'='+v);}}}catch(e){}return h.join('; ');})()",
+        tutorial = "1. 在页面中使用手机号验证码或微信扫码完成登录\n2. 登录成功后会自动保存，也可点击右上角「保存」\n3. 登录后在网盘页点击文叔叔卡片即可进入网盘\n\n说明：不登录也可直接解析文叔叔分享链接，登录仅用于在应用内管理文件。"
     )
 }
 
@@ -180,8 +203,32 @@ fun GenericWebViewLoginScreen(
         }
     }
 
+    val sampleCredentialImpl: suspend () -> String? = {
+        val cookie = cookieValue()
+        if (isPlausibleCookie(cookie)) {
+            cookie
+        } else {
+            val probe = config.localStorageProbe
+            if (probe == null) {
+                null
+            } else {
+                val jsResult = suspendCancellableCoroutine { cont ->
+                    runCatching {
+                        webView.evaluateJavascript(probe) { r ->
+                            cont.resumeWith(Result.success(r ?: "null"))
+                        }
+                    }.onFailure {
+                        cont.resumeWith(Result.success("null"))
+                    }
+                }
+                val value = runCatching { jsResult.trim().trim('"') }.getOrNull().orEmpty()
+                value.takeIf { it.isNotBlank() && it != "null" && it.contains("=") }
+            }
+        }
+    }
+
     rememberWebLoginAutoDetect(
-        sampleCredential = { cookieValue() },
+        sampleCredential = { sampleCredentialImpl() },
         isPlausible = { isPlausibleCookie(it) },
         validateAndSave = { viewModel.saveCookie(config.platform, it) },
         isPaused = { isSaving || isSavingManual || showCookieDialog },
@@ -225,8 +272,8 @@ fun GenericWebViewLoginScreen(
                         onClick = {
                             scope.launch {
                                 isSaving = true
-                                val cookie = cookieValue()
-                                val saved = if (cookie.isBlank()) false else viewModel.saveCookie(config.platform, cookie)
+                                val cookie = sampleCredentialImpl()
+                                val saved = if (cookie.isNullOrBlank()) false else viewModel.saveCookie(config.platform, cookie)
                                 isSaving = false
                                 if (saved) {
                                     SnackbarController.show("登录成功")

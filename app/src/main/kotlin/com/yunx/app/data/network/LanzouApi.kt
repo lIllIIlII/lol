@@ -47,13 +47,16 @@ object LanzouApi {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
     private val FAMILY_DOMAINS = listOf(
-        "wwbll.lanzoul.com", "wwl.lanzoup.com", "wwm.lanzouv.com",
-        "wwp.lanzouy.com", "wwk.lanzoue.com", "wwj.lanzoux.com",
-        "wwh.lanzouf.com", "wwy.lanzouh.com", "wwt.lanzoud.com"
+        "wwi.lanzouw.com", "wwl.lanzoup.com", "wwm.lanzouv.com",
+        "wwp.lanzoui.com", "wwk.lanzoue.com", "wwj.lanzouf.com",
+        "wwh.lanzoug.com", "wwy.lanzouh.com", "wwt.lanzouq.com",
+        "wws.lanzout.com", "wwr.lanzoux.com", "wwq.lanzouy.com",
+        "wwn.lanzoul.com", "wwc.lanzouc.com", "wwd.lanzoum.com",
+        "wwu.lanpw.com", "wwv.lanpv.com", "wwz.lanzn.com"
     )
 
     private fun failoverHosts(original: String): List<String> {
-        return (listOf(original) + FAMILY_DOMAINS.filter { it != original }).distinct().take(7)
+        return (listOf(original) + FAMILY_DOMAINS.filter { it != original }).distinct().take(11)
     }
 
     private val hostCookies = ConcurrentHashMap<String, String>()

@@ -198,7 +198,6 @@ private fun buildInitScript(deviceId: String): String {
             if (window.__xunleiInited) return true;
             if (window.XlCaptcha && typeof window.XlCaptcha.init === 'function') {
               try {
-                // 防御：补齐缺失的原生方法（包里未定义 isMobileSDK）
                 if (typeof window.XlCaptcha.isMobileSDK !== 'function') {
                   window.XlCaptcha.isMobileSDK = function(){ return false; };
                 }

@@ -1,7 +1,7 @@
 {
-  "version": "1.5.2",
+  "version": "1.6.0",
   "date": "2026-09-11",
-  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.5.2/XiXiAt_1.5.2.apk",
-  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.5.2/XiXiAt_1.5.2.apk",
-  "notes": "v1.5.2：尝试修复蓝奏云（CDN 反爬挑战 acw_tc 配对 + 多轮重试 + 文件夹列表接口正则修复）；增加网盘转存后自动下载（转存成功弹窗询问是否立即下载，设置可开关）；新增蜂窝式视图（网盘页六边形蜂巢布局，主题页可切换）；源码去注释与整体优化。"
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.6.0/XiXiAt_1.6.0.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.6.0/XiXiAt_1.6.0.apk",
+  "notes": "v1.6.0：移除蜂窝式视图，网盘页统一列表卡片布局；修复蓝奏云解析（识别 lanpw/lanpv/lanzn 等随机家族域名，容灾列表扩充至 18 个存活节点）；修复蓝奏云登录地址（accounts.woozooo.com）与奶牛快传登录地址（/login）；新增城通网盘、文叔叔登录入口（含验证码/扫码与 localStorage 凭证捕获）；蓝奏云/奶牛快传/小飞机/城通/文叔叔登录后点击卡片直接进入网盘页面，不再展示 Cookie；账号管理弹窗隐私优化；源码全量去注释。"
 }

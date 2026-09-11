@@ -18,6 +18,8 @@ class SimpleAccountViewModel(
     val lanzouAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.LANZOU)
     val cowAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.COWTRANSFER)
     val feijiAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.FEIJI)
+    val ctfileAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.CTFILE)
+    val wssAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.WENSHUSHU)
 
     private fun observe(platform: String): StateFlow<SimpleAccountEntity?> =
         repository.observeAccount(platform)

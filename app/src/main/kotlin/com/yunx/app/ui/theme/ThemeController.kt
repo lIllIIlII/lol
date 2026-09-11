@@ -17,9 +17,6 @@ object ThemeController {
     var seedColor by mutableStateOf(SettingsRepository.DEFAULT_SEED_COLOR)
         private set
 
-    var driveViewStyle by mutableStateOf(0)
-        private set
-
     private var initialized = false
 
     fun init(context: Context) {
@@ -28,7 +25,6 @@ object ThemeController {
         darkMode = s.darkMode
         colorMode = s.themeColorMode
         seedColor = s.themeSeedColor
-        driveViewStyle = s.driveViewStyle
         initialized = true
     }
 
@@ -49,10 +45,5 @@ object ThemeController {
             themeSeedColor = argb
             themeColorMode = 2
         }
-    }
-
-    fun setDriveViewStyle(context: Context, value: Int) {
-        driveViewStyle = value.coerceIn(0, 1)
-        SettingsRepository(context).driveViewStyle = driveViewStyle
     }
 }

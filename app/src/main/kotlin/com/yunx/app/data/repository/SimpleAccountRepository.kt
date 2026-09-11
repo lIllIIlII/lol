@@ -8,6 +8,8 @@ object SimpleNetdisk {
     const val LANZOU = "lanzou"
     const val COWTRANSFER = "cowtransfer"
     const val FEIJI = "feiji"
+    const val CTFILE = "ctfile"
+    const val WENSHUSHU = "wenshushu"
 }
 
 class SimpleAccountRepository(

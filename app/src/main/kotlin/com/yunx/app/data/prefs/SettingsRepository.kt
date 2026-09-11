@@ -111,12 +111,6 @@ class SettingsRepository(context: Context) {
             prefs.edit().putBoolean("ask_download_after_save", value).apply()
         }
 
-    var driveViewStyle: Int
-        get() = prefs.getInt("drive_view_style", 0)
-        set(value) {
-            prefs.edit().putInt("drive_view_style", value.coerceIn(0, 1)).apply()
-        }
-
     companion object {
         const val DEFAULT_DOWNLOAD_THREADS = 32
         const val MAX_DOWNLOAD_THREADS = 512

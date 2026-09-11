@@ -153,6 +153,8 @@ fun MainScreen() {
     var showLanzouLogin by rememberSaveable { mutableStateOf(false) }
     var showCowLogin by rememberSaveable { mutableStateOf(false) }
     var showFeijiLogin by rememberSaveable { mutableStateOf(false) }
+    var showCtfileLogin by rememberSaveable { mutableStateOf(false) }
+    var showWssLogin by rememberSaveable { mutableStateOf(false) }
     var showUCLogin by rememberSaveable { mutableStateOf(false) }
     var showXunleiLogin by rememberSaveable { mutableStateOf(false) }
     var showXunleiVerify by rememberSaveable { mutableStateOf(false) }
@@ -435,6 +437,8 @@ fun MainScreen() {
     val lanzouAccount by simpleViewModel.lanzouAccount.collectAsState()
     val cowAccount by simpleViewModel.cowAccount.collectAsState()
     val feijiAccount by simpleViewModel.feijiAccount.collectAsState()
+    val ctfileAccount by simpleViewModel.ctfileAccount.collectAsState()
+    val wssAccount by simpleViewModel.wssAccount.collectAsState()
 
     var showBatteryGuide by remember { mutableStateOf(false) }
     var batteryGuideShown by remember { mutableStateOf(false) }
@@ -576,6 +580,26 @@ fun MainScreen() {
         return
     }
 
+    if (showCtfileLogin) {
+        GenericWebViewLoginScreen(
+            config = GenericLoginConfigs.ctfile,
+            repository = simpleRepository,
+            onBack = { showCtfileLogin = false },
+            onSaved = { showCtfileLogin = false }
+        )
+        return
+    }
+
+    if (showWssLogin) {
+        GenericWebViewLoginScreen(
+            config = GenericLoginConfigs.wenshushu,
+            repository = simpleRepository,
+            onBack = { showWssLogin = false },
+            onSaved = { showWssLogin = false }
+        )
+        return
+    }
+
     val topAppBarState = rememberTopAppBarState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(topAppBarState)
 
@@ -644,6 +668,8 @@ fun MainScreen() {
                         lanzouAccount = lanzouAccount,
                         cowAccount = cowAccount,
                         feijiAccount = feijiAccount,
+                        ctfileAccount = ctfileAccount,
+                        wssAccount = wssAccount,
                         simpleViewModel = simpleViewModel,
                         quarkCloudViewModel = quarkCloudViewModel,
                         ucCloudViewModel = ucCloudViewModel,
@@ -671,6 +697,10 @@ fun MainScreen() {
                         onCowLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.COWTRANSFER) },
                         onFeijiLogin = { showFeijiLogin = true },
                         onFeijiLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.FEIJI) },
+                        onCtfileLogin = { showCtfileLogin = true },
+                        onCtfileLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.CTFILE) },
+                        onWssLogin = { showWssLogin = true },
+                        onWssLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.WENSHUSHU) },
                         onGoResolve = { currentTab = MainTab.Resolve }
                     )
                     MainTab.Download -> DownloadScreen(scrollBehavior, downloadViewModel)
