@@ -35,7 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.yunx.app.data.network.LanzouApi
+import com.yunx.app.data.network.UserAgents
 
 data class SimpleCloudSite(
     val title: String,
@@ -44,11 +44,6 @@ data class SimpleCloudSite(
 )
 
 object SimpleCloudSites {
-    val LANZOU = SimpleCloudSite(
-        title = "蓝奏云",
-        homeUrl = "https://pc.woozooo.com/",
-        userAgent = LanzouApi.USER_AGENT
-    )
     val COWTRANSFER = SimpleCloudSite(
         title = "奶牛快传",
         homeUrl = "https://cowtransfer.com/"
@@ -71,7 +66,6 @@ object SimpleCloudSites {
     )
 
     fun forPlatform(platform: String): SimpleCloudSite? = when (platform) {
-        "lanzou" -> LANZOU
         "cowtransfer" -> COWTRANSFER
         "feiji" -> FEIJI
         "ctfile" -> CTFILE

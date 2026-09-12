@@ -271,8 +271,8 @@ fun WallpaperBackground(
 fun Modifier.liquidGlass(
     shape: Shape,
     darkTheme: Boolean = true,
-    tintAlpha: Float = if (darkTheme) 0.16f else 0.40f,
-    borderAlpha: Float = if (darkTheme) 0.60f else 0.90f,
+    tintAlpha: Float = if (darkTheme) 0.18f else 0.42f,
+    borderAlpha: Float = if (darkTheme) 0.70f else 0.95f,
     alignToScreen: Boolean = true
 ): Modifier = composed {
     var panelPos by remember { mutableStateOf(IntOffset.Zero) }
@@ -313,18 +313,18 @@ fun Modifier.liquidGlass(
             drawRect(
                 Brush.verticalGradient(
                     listOf(
-                        Color.White.copy(alpha = tintAlpha * 0.65f),
-                        Color.White.copy(alpha = tintAlpha * 1.25f),
-                        Color.Black.copy(alpha = tintAlpha * 0.35f)
+                        Color.White.copy(alpha = tintAlpha * 0.55f),
+                        Color.White.copy(alpha = tintAlpha * 1.30f),
+                        Color.Black.copy(alpha = tintAlpha * 0.30f)
                     )
                 )
             )
             val borderBrush = Brush.linearGradient(
                 colors = listOf(
                     Color.White.copy(alpha = borderAlpha),
-                    Color.White.copy(alpha = borderAlpha * 0.15f),
-                    Color.White.copy(alpha = borderAlpha * 0.5f),
-                    Color.White.copy(alpha = borderAlpha * 0.10f)
+                    Color.White.copy(alpha = borderAlpha * 0.10f),
+                    Color.White.copy(alpha = borderAlpha * 0.55f),
+                    Color.White.copy(alpha = borderAlpha * 0.08f)
                 ),
                 start = Offset(0f, 0f),
                 end = Offset(size.width, size.height)
@@ -337,7 +337,7 @@ fun Modifier.liquidGlass(
                         topLeft = Offset(rr.left, rr.top),
                         size = Size(rr.width, rr.height),
                         cornerRadius = rr.topLeftCornerRadius,
-                        style = Stroke(width = 1.4.dp.toPx())
+                        style = Stroke(width = 1.6.dp.toPx())
                     )
                 }
                 is androidx.compose.ui.graphics.Outline.Rectangle -> {
@@ -345,7 +345,7 @@ fun Modifier.liquidGlass(
                         brush = borderBrush,
                         topLeft = outline.rect.topLeft,
                         size = outline.rect.size,
-                        style = Stroke(width = 1.4.dp.toPx())
+                        style = Stroke(width = 1.6.dp.toPx())
                     )
                 }
                 else -> {}
@@ -354,12 +354,34 @@ fun Modifier.liquidGlass(
                 brush = Brush.horizontalGradient(
                     listOf(
                         Color.White.copy(alpha = 0f),
-                        Color.White.copy(alpha = if (darkTheme) 0.28f else 0.55f),
+                        Color.White.copy(alpha = if (darkTheme) 0.32f else 0.60f),
                         Color.White.copy(alpha = 0f)
                     )
                 ),
                 topLeft = Offset(size.width * 0.08f, 0.7.dp.toPx()),
-                size = Size(size.width * 0.84f, 1.1.dp.toPx())
+                size = Size(size.width * 0.84f, 1.2.dp.toPx())
+            )
+            drawRect(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = if (darkTheme) 0.22f else 0.40f),
+                        Color.White.copy(alpha = 0f)
+                    ),
+                    center = Offset(size.width * 0.25f, -size.height * 0.15f),
+                    radius = size.width.coerceAtLeast(size.height) * 0.95f
+                )
+            )
+            drawRect(
+                brush = Brush.verticalGradient(
+                    0.0f to Color.White.copy(alpha = if (darkTheme) 0.38f else 0.65f),
+                    0.06f to Color.White.copy(alpha = 0f),
+                    1.0f to Color.Black.copy(alpha = if (darkTheme) 0.18f else 0.08f)
+                )
+            )
+            drawRect(
+                color = Color.White.copy(alpha = 0.10f),
+                topLeft = Offset.Zero,
+                size = androidx.compose.ui.geometry.Size(size.width, 0.5.dp.toPx())
             )
         }
 }

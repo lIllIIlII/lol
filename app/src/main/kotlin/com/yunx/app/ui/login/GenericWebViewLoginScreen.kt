@@ -65,18 +65,6 @@ data class GenericLoginConfig(
 )
 
 object GenericLoginConfigs {
-    val lanzou = GenericLoginConfig(
-        platform = SimpleNetdisk.LANZOU,
-        title = "蓝奏云登录",
-        loginUrl = "https://accounts.woozooo.com/accounts.php?action=login&ref=pc.woozooo.com",
-        cookieUrls = listOf(
-            "https://accounts.woozooo.com/",
-            "https://pc.woozooo.com/",
-            "https://up.woozooo.com/"
-        ),
-        cookieKeys = listOf("phpdisk_info"),
-        tutorial = "1. 在页面中输入蓝奏云账号密码完成登录\n2. 登录成功后将自动保存登录态\n3. 登录后在网盘页点击蓝奏云卡片即可进入网盘\n\n说明：不登录也可直接解析蓝奏云分享链接，登录仅用于提升可靠性。"
-    )
     val cowTransfer = GenericLoginConfig(
         platform = SimpleNetdisk.COWTRANSFER,
         title = "奶牛快传登录",

@@ -7,7 +7,6 @@ object DownloadPlatform {
     const val BAIDU = "baidu"
     const val C139 = "c139"
     const val PAN123 = "pan123"
-    const val LANZOU = "lanzou"
     const val COWTRANSFER = "cowtransfer"
     const val FEIJI = "feiji"
     const val ILANZOU = "ilanzou"

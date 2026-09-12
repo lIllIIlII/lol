@@ -62,7 +62,7 @@ fun WelcomeDialog(
                 .padding(horizontal = 2.dp),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
         ) {
-            WelcomeFeature(Icons.Outlined.Link, "一键解析", "夸克 / UC / 迅雷 / 百度 / 139 / 123 / 蓝奏云 / 奶牛 / 小飞机")
+            WelcomeFeature(Icons.Outlined.Link, "一键解析", "夸克 / UC / 迅雷 / 百度 / 139 / 123 / 天翼 / 奶牛 / 小飞机")
             WelcomeFeature(Icons.Outlined.Speed, "高速下载", "多线程分片下载，不限速")
             WelcomeFeature(Icons.Outlined.CloudDownload, "转存收藏", "登录网盘后一键转存到自己的云盘")
         }

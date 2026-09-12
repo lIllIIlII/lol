@@ -5,7 +5,6 @@ import com.yunx.app.data.db.SimpleAccountEntity
 import kotlinx.coroutines.flow.Flow
 
 object SimpleNetdisk {
-    const val LANZOU = "lanzou"
     const val COWTRANSFER = "cowtransfer"
     const val FEIJI = "feiji"
     const val CTFILE = "ctfile"

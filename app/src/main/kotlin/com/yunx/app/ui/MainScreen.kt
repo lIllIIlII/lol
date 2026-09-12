@@ -86,7 +86,6 @@ import com.yunx.app.data.repository.QuarkAccountRepository
 import com.yunx.app.data.repository.QuarkResolveRepository
 import com.yunx.app.data.repository.CowTransferResolveRepository
 import com.yunx.app.data.repository.Cloud189ResolveRepository
-import com.yunx.app.data.repository.LanzouResolveRepository
 import com.yunx.app.data.repository.CtfileResolveRepository
 import com.yunx.app.data.repository.WenshushuResolveRepository
 import com.yunx.app.data.repository.WsDiskResolveRepository
@@ -151,7 +150,6 @@ import com.yunx.app.data.network.HttpClients
 fun MainScreen() {
     var currentTab by rememberSaveable { mutableStateOf(MainTab.Resolve) }
     var showQuarkLogin by rememberSaveable { mutableStateOf(false) }
-    var showLanzouLogin by rememberSaveable { mutableStateOf(false) }
     var showCloud189Login by rememberSaveable { mutableStateOf(false) }
     var showCowLogin by rememberSaveable { mutableStateOf(false) }
     var showFeijiLogin by rememberSaveable { mutableStateOf(false) }
@@ -221,9 +219,6 @@ fun MainScreen() {
     val simpleRepository = remember {
         SimpleAccountRepository(db.simpleAccountDao())
     }
-    val lanzouResolveRepository = remember { LanzouResolveRepository(
-        cookieProvider = { simpleRepository.getAccount(com.yunx.app.data.repository.SimpleNetdisk.LANZOU)?.cookie }
-    ) }
     val cloud189ResolveRepository = remember { Cloud189ResolveRepository(
         cookieProvider = { simpleRepository.getAccount(com.yunx.app.data.repository.SimpleNetdisk.CLOUD189)?.cookie }
     ) }
@@ -413,7 +408,6 @@ fun MainScreen() {
             pan123Repository,
             pan123ResolveRepository,
             simpleRepository,
-            lanzouResolveRepository,
             cowTransferResolveRepository,
             feijiResolveRepository,
             ilanzouResolveRepository,
@@ -440,7 +434,6 @@ fun MainScreen() {
     val simpleViewModel: SimpleAccountViewModel = viewModel(
         factory = SimpleAccountViewModel.Factory(simpleRepository)
     )
-    val lanzouAccount by simpleViewModel.lanzouAccount.collectAsState()
     val cloud189Account by simpleViewModel.cloud189Account.collectAsState()
     val cowAccount by simpleViewModel.cowAccount.collectAsState()
     val feijiAccount by simpleViewModel.feijiAccount.collectAsState()
@@ -553,16 +546,6 @@ fun MainScreen() {
             viewModel = pan123ViewModel,
             onBack = { showPan123Login = false },
             onSaved = { showPan123Login = false }
-        )
-        return
-    }
-
-    if (showLanzouLogin) {
-        GenericWebViewLoginScreen(
-            config = GenericLoginConfigs.lanzou,
-            repository = simpleRepository,
-            onBack = { showLanzouLogin = false },
-            onSaved = { showLanzouLogin = false }
         )
         return
     }
@@ -682,7 +665,6 @@ fun MainScreen() {
                         baiduAccount = baiduAccount,
                         c139Account = c139Account,
                         pan123Account = pan123Account,
-                        lanzouAccount = lanzouAccount,
                         cloud189Account = cloud189Account,
                         cowAccount = cowAccount,
                         feijiAccount = feijiAccount,
@@ -709,8 +691,6 @@ fun MainScreen() {
                         onC139Logout = { c139ViewModel.logout() },
                         onPan123Login = { showPan123Login = true },
                         onPan123Logout = { pan123ViewModel.logout() },
-                        onLanzouLogin = { showLanzouLogin = true },
-                        onLanzouLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.LANZOU) },
                         onCloud189Login = { showCloud189Login = true },
                         onCloud189Logout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.CLOUD189) },
                         onCowLogin = { showCowLogin = true },

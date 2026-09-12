@@ -90,7 +90,6 @@ fun DriveScreen(
     baiduAccount: BaiduAccountEntity?,
     c139Account: C139AccountEntity?,
     pan123Account: Pan123AccountEntity?,
-    lanzouAccount: SimpleAccountEntity?,
     cloud189Account: SimpleAccountEntity?,
     cowAccount: SimpleAccountEntity?,
     feijiAccount: SimpleAccountEntity?,
@@ -117,8 +116,6 @@ fun DriveScreen(
     onC139Logout: () -> Unit,
     onPan123Login: () -> Unit,
     onPan123Logout: () -> Unit,
-    onLanzouLogin: () -> Unit,
-    onLanzouLogout: () -> Unit,
     onCloud189Login: () -> Unit,
     onCloud189Logout: () -> Unit,
     onCowLogin: () -> Unit,
@@ -188,13 +185,6 @@ fun DriveScreen(
         description = pan123Account?.nickname ?: "点击登录，支持解析下载",
         avatarText = "123",
         isLoggedIn = pan123Account != null
-    )
-    val lanzou = DriveAccount(
-        id = "lanzou",
-        name = "蓝奏云",
-        description = lanzouAccount?.nickname?.takeIf { it.isNotBlank() } ?: "登录可选，支持解析下载",
-        avatarText = "蓝",
-        isLoggedIn = lanzouAccount != null
     )
     val cloud189 = DriveAccount(
         id = "cloud189",
@@ -406,21 +396,6 @@ fun DriveScreen(
                         }
                     )
                 }
-                item(key = lanzou.id) {
-                    DriveAccountCard(
-                        account = lanzou,
-                        onClick = if (lanzou.isLoggedIn) {
-                            { showSimpleCloudFor = "lanzou" }
-                        } else {
-                            onLanzouLogin
-                        },
-                        onMoreClick = if (lanzou.isLoggedIn) {
-                            { showSimpleSheetFor = "lanzou" }
-                        } else {
-                            null
-                        }
-                    )
-                }
                 item(key = cloud189.id) {
                     DriveAccountCard(
                         account = cloud189,
@@ -568,7 +543,6 @@ fun DriveScreen(
     }
 
     val simpleSheetAccount = when (showSimpleSheetFor) {
-        "lanzou" -> lanzouAccount
         "cloud189" -> cloud189Account
         "cowtransfer" -> cowAccount
         "feiji" -> feijiAccount
@@ -579,7 +553,6 @@ fun DriveScreen(
     if (showSimpleSheetFor != null && simpleSheetAccount != null) {
         val platform = showSimpleSheetFor!!
         val displayName = when (platform) {
-            "lanzou" -> "蓝奏云"
             "cloud189" -> "天翼云盘"
             "cowtransfer" -> "奶牛快传"
             "ctfile" -> "城通网盘"
@@ -591,7 +564,6 @@ fun DriveScreen(
             account = simpleSheetAccount,
             onLogout = {
                 when (platform) {
-                    "lanzou" -> onLanzouLogout()
                     "cloud189" -> onCloud189Logout()
                     "cowtransfer" -> onCowLogout()
                     "feiji" -> onFeijiLogout()

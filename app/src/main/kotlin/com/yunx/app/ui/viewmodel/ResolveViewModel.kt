@@ -13,7 +13,7 @@ import com.yunx.app.data.download.DownloadManager
 import com.yunx.app.data.download.DownloadPlatform
 import com.yunx.app.data.network.BaiduConstants
 import com.yunx.app.data.network.C139Constants
-import com.yunx.app.data.network.LanzouApi
+import com.yunx.app.data.network.UserAgents
 import com.yunx.app.data.network.Pan123Constants
 import com.yunx.app.data.network.QuarkConstants
 import com.yunx.app.data.network.QuarkCdn
@@ -30,7 +30,6 @@ import com.yunx.app.data.repository.C139AccountRepository
 import com.yunx.app.data.repository.C139ResolveRepository
 import com.yunx.app.data.repository.CowTransferResolveRepository
 import com.yunx.app.data.repository.Cloud189ResolveRepository
-import com.yunx.app.data.repository.LanzouResolveRepository
 import com.yunx.app.data.repository.CtfileResolveRepository
 import com.yunx.app.data.repository.WenshushuResolveRepository
 import com.yunx.app.data.repository.SimpleAccountRepository
@@ -78,7 +77,6 @@ class ResolveViewModel(
     private val pan123AccountRepository: Pan123AccountRepository,
     private val pan123ResolveRepository: Pan123ResolveRepository,
     private val simpleAccountRepository: SimpleAccountRepository,
-    private val lanzouResolveRepository: LanzouResolveRepository,
     private val cowTransferResolveRepository: CowTransferResolveRepository,
     private val feijiResolveRepository: WsDiskResolveRepository,
     private val ilanzouResolveRepository: WsDiskResolveRepository,
@@ -118,8 +116,7 @@ class ResolveViewModel(
         private set
 
     private val loginOptional: Boolean
-        get() = currentPlatform == SharePlatform.LANZOU ||
-            currentPlatform == SharePlatform.ILANZOU ||
+        get() = currentPlatform == SharePlatform.ILANZOU ||
             currentPlatform == SharePlatform.COWTRANSFER ||
             currentPlatform == SharePlatform.FEIJI ||
             currentPlatform == SharePlatform.CTFILE ||
@@ -531,7 +528,6 @@ class ResolveViewModel(
         SharePlatform.BAIDU -> baiduAccountRepository.getAccount()?.cookie.orEmpty()
         SharePlatform.C139 -> c139AccountRepository.getAccount()?.cookie.orEmpty()
         SharePlatform.PAN123 -> pan123AccountRepository.getAccount()?.accessToken.orEmpty()
-        SharePlatform.LANZOU -> simpleAccountRepository.getAccount(SimpleNetdisk.LANZOU)?.cookie.orEmpty()
         SharePlatform.CLOUD189 -> simpleAccountRepository.getAccount(SimpleNetdisk.CLOUD189)?.cookie.orEmpty()
         SharePlatform.COWTRANSFER -> ""
         SharePlatform.FEIJI -> ""
@@ -547,7 +543,6 @@ class ResolveViewModel(
         SharePlatform.BAIDU -> baiduResolveRepository
         SharePlatform.C139 -> c139ResolveRepository
         SharePlatform.PAN123 -> pan123ResolveRepository
-        SharePlatform.LANZOU -> lanzouResolveRepository
         SharePlatform.COWTRANSFER -> cowTransferResolveRepository
         SharePlatform.FEIJI -> feijiResolveRepository
         SharePlatform.ILANZOU -> ilanzouResolveRepository
@@ -563,7 +558,7 @@ class ResolveViewModel(
         SharePlatform.BAIDU -> ""
         SharePlatform.C139 -> "0"
         SharePlatform.PAN123 -> "0"
-        SharePlatform.LANZOU, SharePlatform.COWTRANSFER, SharePlatform.FEIJI, SharePlatform.ILANZOU,
+        SharePlatform.COWTRANSFER, SharePlatform.FEIJI, SharePlatform.ILANZOU,
         SharePlatform.CTFILE, SharePlatform.WENSHUSHU, SharePlatform.CLOUD189 -> "0"
         else -> QuarkConstants.DEFAULT_PDIR_FID
     }
@@ -574,7 +569,6 @@ class ResolveViewModel(
         SharePlatform.BAIDU -> "百度网盘"
         SharePlatform.C139 -> "139 网盘"
         SharePlatform.PAN123 -> "123云盘"
-        SharePlatform.LANZOU -> "蓝奏云"
         SharePlatform.ILANZOU -> "蓝奏云优享版"
         SharePlatform.COWTRANSFER -> "奶牛快传"
         SharePlatform.FEIJI -> "小飞机网盘"
@@ -750,7 +744,6 @@ class ResolveViewModel(
         val isC139 = currentPlatform == SharePlatform.C139
         val isPan123 = currentPlatform == SharePlatform.PAN123
         val isQuark = currentPlatform == SharePlatform.QUARK
-        val isLanzou = currentPlatform == SharePlatform.LANZOU
         val isCow = currentPlatform == SharePlatform.COWTRANSFER
         val isFeiji = currentPlatform == SharePlatform.FEIJI
         val isIlanzou = currentPlatform == SharePlatform.ILANZOU
@@ -763,7 +756,6 @@ class ResolveViewModel(
             isBaidu -> DownloadPlatform.BAIDU
             isC139 -> DownloadPlatform.C139
             isPan123 -> DownloadPlatform.PAN123
-            isLanzou -> DownloadPlatform.LANZOU
             isCow -> DownloadPlatform.COWTRANSFER
             isFeiji -> DownloadPlatform.FEIJI
             isIlanzou -> DownloadPlatform.ILANZOU
@@ -778,12 +770,8 @@ class ResolveViewModel(
             else -> credential
         }
         val headers = when {
-            isLanzou -> mapOf(
-                "User-Agent" to LanzouApi.USER_AGENT,
-                "Referer" to "https://pc.woozooo.com/"
-            )
-            isCow || isFeiji || isIlanzou -> mapOf("User-Agent" to LanzouApi.USER_AGENT)
-            isCtfile || isWss -> mapOf("User-Agent" to LanzouApi.USER_AGENT)
+            isCow || isFeiji || isIlanzou -> mapOf("User-Agent" to UserAgents.DESKTOP)
+            isCtfile || isWss -> mapOf("User-Agent" to UserAgents.DESKTOP)
             isCloud189 -> mapOf("User-Agent" to com.yunx.app.data.network.Cloud189Api.USER_AGENT)
             isXunlei -> mapOf("User-Agent" to XunleiConstants.APP_UA)
             isBaidu -> mapOf(
@@ -871,7 +859,6 @@ class ResolveViewModel(
         private val pan123AccountRepository: Pan123AccountRepository,
         private val pan123ResolveRepository: Pan123ResolveRepository,
         private val simpleAccountRepository: SimpleAccountRepository,
-        private val lanzouResolveRepository: LanzouResolveRepository,
         private val cowTransferResolveRepository: CowTransferResolveRepository,
         private val feijiResolveRepository: WsDiskResolveRepository,
         private val ilanzouResolveRepository: WsDiskResolveRepository,
@@ -893,7 +880,6 @@ class ResolveViewModel(
                 c139AccountRepository, c139ResolveRepository,
                 pan123AccountRepository, pan123ResolveRepository,
                 simpleAccountRepository,
-                lanzouResolveRepository,
                 cowTransferResolveRepository,
                 feijiResolveRepository,
                 ilanzouResolveRepository,

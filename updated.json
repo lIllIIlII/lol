@@ -1,7 +1,7 @@
 {
-  "version": "1.7.1",
+  "version": "1.8.0",
   "date": "2026-09-12",
-  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.7.1/XiXiAt_1.7.1.apk",
-  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.7.1/XiXiAt_1.7.1.apk",
-  "notes": "v1.7.1：修复更新检测（改用 GitHub Releases API 直连 + cache-buster，绕开 jsDelivr 12 小时缓存导致 1.6.0 显示「已是最新版本」）；升级 release 签名为正式 keystore（4096-bit RSA / 25 年有效）；⚠️ 因签名变更，1.7.0 及更早版本需先卸载旧版才能安装本版本。"
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.8.0/XiXiAt_1.8.0.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.8.0/XiXiAt_1.8.0.apk",
+  "notes": "自行探索"
 }

@@ -325,7 +325,7 @@ private fun ResolveInputContent(
                     value = link,
                     onValueChange = onLinkChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("支持 夸克/UC/迅雷/百度/139/123/蓝奏云/奶牛/小飞机/城通/文叔叔") },
+                    placeholder = { Text("支持 夸克/UC/迅雷/百度/139/123/天翼/奶牛/小飞机/城通/文叔叔") },
                     leadingIcon = { Icon(Icons.Outlined.Link, contentDescription = null) },
                     trailingIcon = {
                         if (link.isNotEmpty()) {
@@ -452,7 +452,6 @@ private fun platformLabel(platform: SharePlatform): String = when (platform) {
     SharePlatform.BAIDU -> "百度网盘"
     SharePlatform.C139 -> "139 网盘"
     SharePlatform.PAN123 -> "123云盘"
-    SharePlatform.LANZOU -> "蓝奏云"
     SharePlatform.ILANZOU -> "蓝奏云优享版"
     SharePlatform.COWTRANSFER -> "奶牛快传"
     SharePlatform.FEIJI -> "小飞机网盘"

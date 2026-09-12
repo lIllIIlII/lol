@@ -15,7 +15,6 @@ class SimpleAccountViewModel(
     private val repository: SimpleAccountRepository
 ) : ViewModel() {
 
-    val lanzouAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.LANZOU)
     val cowAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.COWTRANSFER)
     val feijiAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.FEIJI)
     val ctfileAccount: StateFlow<SimpleAccountEntity?> = observe(SimpleNetdisk.CTFILE)

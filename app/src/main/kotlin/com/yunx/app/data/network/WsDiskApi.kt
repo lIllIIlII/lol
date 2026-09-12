@@ -11,6 +11,8 @@ import java.util.concurrent.TimeUnit
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
+import com.yunx.app.data.network.UserAgents
+
 data class WsDiskConfig(
     val hosts: List<String>,
     val recommendPath: String,
@@ -108,7 +110,7 @@ class WsDiskApi(val config: WsDiskConfig) {
 
     private fun baseHeaders(): okhttp3.Headers.Builder {
         return okhttp3.Headers.Builder()
-            .set("User-Agent", LanzouApi.USER_AGENT)
+            .set("User-Agent", UserAgents.DESKTOP)
             .set("Accept", "application/json, text/plain, */*")
             .set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
             .set("Origin", config.origin)

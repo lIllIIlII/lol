@@ -23,8 +23,8 @@ android {
         applicationId = "com.ccat.pan"
         minSdk = 23
         targetSdk = 34
-        versionCode = 26
-        versionName = "1.7.1"
+        versionCode = 27
+        versionName = "1.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
