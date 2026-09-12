@@ -20,6 +20,12 @@ gradle-app.setting
 local.properties
 
 
+# 签名文件与密码配置（切勿提交）
+release.keystore
+*.keystore
+keystore.properties
+signing.properties
+
 # 本地测试产物
 testout/
 

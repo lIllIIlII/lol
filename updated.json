@@ -1,7 +1,7 @@
 {
-  "version": "1.7.0",
+  "version": "1.7.1",
   "date": "2026-09-12",
-  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.7.0/XiXiAt_1.7.0.apk",
-  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.7.0/XiXiAt_1.7.0.apk",
-  "notes": "v1.7.0：修复蓝奏云解析（域名家族扩充至 100+ 节点，覆盖 lanzou*/lanpw/lanpv/lanzn/wwurl/wwork 全部变体）；新增天翼云盘（cloud.189.cn）解析与登录入口；新增对应 Cookie 登录页（WebView + 手动输入）；优化解析与列表加载流畅度；更换 APP 图标；源码无注释。"
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.7.1/XiXiAt_1.7.1.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.7.1/XiXiAt_1.7.1.apk",
+  "notes": "v1.7.1：修复更新检测（改用 GitHub Releases API 直连 + cache-buster，绕开 jsDelivr 12 小时缓存导致 1.6.0 显示「已是最新版本」）；升级 release 签名为正式 keystore（4096-bit RSA / 25 年有效）；⚠️ 因签名变更，1.7.0 及更早版本需先卸载旧版才能安装本版本。"
 }

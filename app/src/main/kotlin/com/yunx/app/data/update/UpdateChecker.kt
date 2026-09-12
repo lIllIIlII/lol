@@ -10,7 +10,9 @@ import org.json.JSONObject
 object UpdateChecker {
 
     private const val GITHUB_REPO = "lIllIIlII/lol"
-    private val DEFAULT_UPDATE_URLS = listOf(
+
+    private val DEFAULT_UPDATE_URLS: List<String> get() = listOf(
+        "https://api.github.com/repos/$GITHUB_REPO/releases/latest",
         "https://cdn.jsdelivr.net/gh/$GITHUB_REPO@main/updated.json",
         "https://gh-proxy.com/https://raw.githubusercontent.com/$GITHUB_REPO/main/updated.json",
         "https://raw.githubusercontent.com/$GITHUB_REPO/main/updated.json"
@@ -29,13 +31,15 @@ object UpdateChecker {
     )
 
     fun compareVersions(v1: String, v2: String): Int {
-        val parts1 = v1.trim().trimStart('v').trimStart('V').split(".")
-        val parts2 = v2.trim().trimStart('v').trimStart('V').split(".")
+        val cleaned1 = v1.trim().trimStart('v').trimStart('V')
+        val cleaned2 = v2.trim().trimStart('v').trimStart('V')
+        val parts1 = cleaned1.split(".", "-", "+")
+        val parts2 = cleaned2.split(".", "-", "+")
         val maxLength = maxOf(parts1.size, parts2.size)
         for (i in 0 until maxLength) {
             val num1 = parts1.getOrNull(i)?.toIntOrNull() ?: 0
             val num2 = parts2.getOrNull(i)?.toIntOrNull() ?: 0
-            if (num1 != num2) return num1 - num2
+            if (num1 != num2) return num1.compareTo(num2)
         }
         return 0
     }
@@ -74,17 +78,66 @@ object UpdateChecker {
             addAll(DEFAULT_UPDATE_URLS)
         }
         for (url in urls) {
-            val release = runCatching { fetch(url) }.getOrNull()
-            if (release != null && release.version.isNotBlank()) return@withContext release
+            val resolved = runCatching {
+                if (url.contains("api.github.com")) fetchGithubApi(url) else fetchJson(url)
+            }.getOrNull()
+            if (resolved != null && resolved.version.isNotBlank() && resolved.downloadUrl.isNotBlank()) {
+                return@withContext resolved
+            }
         }
         null
     }
 
-    private fun fetch(url: String): Release? {
+    private fun cacheBust(url: String): String {
+        val sep = if (url.contains("?")) "&" else "?"
+        return url + sep + "_t=" + System.currentTimeMillis()
+    }
+
+    private fun fetchGithubApi(url: String): Release? {
         val client = HttpClients.apiClient()
         val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", "XiXiAt")
+            .url(cacheBust(url))
+            .header("User-Agent", "XiXiAt-UpdateChecker")
+            .header("Accept", "application/vnd.github+json")
+            .get()
+            .build()
+        val body = client.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) return null
+            resp.body?.string() ?: return null
+        }
+        val json = runCatching { JSONObject(body) }.getOrNull() ?: return null
+        val tag = json.optString("tag_name").trim().trimStart('v').trimStart('V')
+        if (tag.isBlank()) return null
+        val assets = json.optJSONArray("assets") ?: return null
+        var apkUrl = ""
+        var mirrorUrl = ""
+        for (i in 0 until assets.length()) {
+            val a = assets.optJSONObject(i) ?: continue
+            val name = a.optString("name").lowercase()
+            val browserUrl = a.optString("browser_download_url")
+            if (name.endsWith(".apk")) {
+                apkUrl = browserUrl
+                break
+            }
+        }
+        if (apkUrl.isBlank()) return null
+        val notes = json.optString("body").ifBlank { json.optString("notes") }
+        val publishedAt = json.optString("published_at").ifBlank { json.optString("date") }
+        return Release(
+            version = tag,
+            notes = notes,
+            downloadUrl = apkUrl,
+            publishedAt = publishedAt,
+            mirrorUrl = mirrorUrl
+        )
+    }
+
+    private fun fetchJson(url: String): Release? {
+        val client = HttpClients.apiClient()
+        val request = Request.Builder()
+            .url(cacheBust(url))
+            .header("User-Agent", "XiXiAt-UpdateChecker")
+            .header("Cache-Control", "no-cache")
             .get()
             .build()
         val body = client.newCall(request).execute().use { resp ->
