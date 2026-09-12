@@ -52,11 +52,57 @@ object LanzouApi {
         "wwh.lanzoug.com", "wwy.lanzouh.com", "wwt.lanzouq.com",
         "wws.lanzout.com", "wwr.lanzoux.com", "wwq.lanzouy.com",
         "wwn.lanzoul.com", "wwc.lanzouc.com", "wwd.lanzoum.com",
-        "wwu.lanpw.com", "wwv.lanpv.com", "wwz.lanzn.com"
+        "wwu.lanpw.com", "wwv.lanpv.com", "wwz.lanzn.com",
+        "wwa.lanzoua.com", "wwb.lanzoub.com", "wwe.lanzoud.com",
+        "wwf.lanzouf.com", "wwg.lanzoug.com", "wwi.lanzoui.com",
+        "wwl.lanzouj.com", "wwm.lanzouk.com", "wwn.lanzoul.com",
+        "wwp.lanzouo.com", "wwr.lanzour.com", "wws.lanzous.com",
+        "wwt.lanzout.com", "wwu.lanzouw.com", "wwv.lanzoux.com",
+        "wwx.lanzouy.com", "wwy.lanzouz.com", "wwz.lanzn.com",
+        "wwa.lanzou.com", "wwb.lanzou.com", "wwc.lanzou.com",
+        "wwd.lanzou.com", "wwe.lanzou.com", "wwf.lanzou.com",
+        "wwg.lanzou.com", "wwh.lanzou.com", "wwj.lanzou.com",
+        "wwk.lanzou.com", "wwl.lanzou.com", "wwm.lanzou.com",
+        "wwn.lanzou.com", "wwo.lanzou.com", "wwp.lanzou.com",
+        "wwq.lanzou.com", "wwr.lanzou.com", "wws.lanzou.com",
+        "wwt.lanzou.com", "wwu.lanzou.com", "wwv.lanzou.com",
+        "www.lanzou.com", "wwx.lanzou.com", "wwy.lanzou.com",
+        "wwz.lanzou.com",
+        "www.lanzoui.com", "www.lanzouj.com", "www.lanzouk.com",
+        "www.lanzoul.com", "www.lanzoum.com", "www.lanzoun.com",
+        "www.lanzouo.com", "www.lanzoup.com", "www.lanzouq.com",
+        "www.lanzour.com", "www.lanzous.com", "www.lanzout.com",
+        "www.lanzouu.com", "www.lanzouv.com", "www.lanzouw.com",
+        "www.lanzoux.com", "www.lanzouy.com", "www.lanzouz.com",
+        "www.lanzoua.com", "www.lanzoub.com", "www.lanzouc.com",
+        "www.lanzoud.com", "www.lanzoue.com", "www.lanzouf.com",
+        "www.lanzoug.com", "www.lanzouh.com",
+        "www.lanpw.com", "www.lanpv.com", "www.lanzn.com",
+        "ww.lanzoui.com", "ww.lanzouj.com", "ww.lanzouk.com",
+        "ww.lanzoul.com", "ww.lanzoum.com", "ww.lanzoun.com",
+        "ww.lanzouo.com", "ww.lanzoup.com", "ww.lanzouq.com",
+        "ww.lanzour.com", "ww.lanzous.com", "ww.lanzout.com",
+        "ww.lanzouv.com", "ww.lanzouw.com", "ww.lanzoux.com",
+        "ww.lanzouy.com", "ww.lanzouz.com", "ww.lanzou.com",
+        "lanzou.com", "lanzoui.com", "lanzouj.com", "lanzouk.com",
+        "lanzoul.com", "lanzoum.com", "lanzoun.com", "lanzouo.com",
+        "lanzoup.com", "lanzouq.com", "lanzour.com", "lanzous.com",
+        "lanzout.com", "lanzouv.com", "lanzouw.com", "lanzoux.com",
+        "lanzouy.com", "lanzouz.com", "lanzoua.com", "lanzoub.com",
+        "lanzouc.com", "lanzoud.com", "lanzoue.com", "lanzouf.com",
+        "lanzoug.com", "lanzouh.com", "lanpw.com", "lanpv.com",
+        "lanzn.com"
     )
 
     private fun failoverHosts(original: String): List<String> {
-        return (listOf(original) + FAMILY_DOMAINS.filter { it != original }).distinct().take(11)
+        val cleaned = original.removePrefix("https://").removePrefix("http://").substringBefore('/')
+        val matched = FAMILY_DOMAINS.firstOrNull { it.equals(cleaned, ignoreCase = true) }
+        val ordered = if (matched != null) {
+            listOf(matched) + FAMILY_DOMAINS.filter { !it.equals(matched, ignoreCase = true) }
+        } else {
+            listOf(cleaned) + FAMILY_DOMAINS
+        }
+        return ordered.distinctBy { it.lowercase() }.take(15)
     }
 
     private val hostCookies = ConcurrentHashMap<String, String>()

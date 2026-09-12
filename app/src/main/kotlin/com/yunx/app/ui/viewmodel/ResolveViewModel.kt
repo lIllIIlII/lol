@@ -29,6 +29,7 @@ import com.yunx.app.data.repository.BaiduResolveRepository
 import com.yunx.app.data.repository.C139AccountRepository
 import com.yunx.app.data.repository.C139ResolveRepository
 import com.yunx.app.data.repository.CowTransferResolveRepository
+import com.yunx.app.data.repository.Cloud189ResolveRepository
 import com.yunx.app.data.repository.LanzouResolveRepository
 import com.yunx.app.data.repository.CtfileResolveRepository
 import com.yunx.app.data.repository.WenshushuResolveRepository
@@ -82,6 +83,7 @@ class ResolveViewModel(
     private val feijiResolveRepository: WsDiskResolveRepository,
     private val ilanzouResolveRepository: WsDiskResolveRepository,
     private val ctfileResolveRepository: CtfileResolveRepository,
+    private val cloud189ResolveRepository: Cloud189ResolveRepository,
     private val wenshushuResolveRepository: WenshushuResolveRepository,
     private val downloadManager: DownloadManager,
     private val bookmarkDao: BookmarkDao,
@@ -121,7 +123,8 @@ class ResolveViewModel(
             currentPlatform == SharePlatform.COWTRANSFER ||
             currentPlatform == SharePlatform.FEIJI ||
             currentPlatform == SharePlatform.CTFILE ||
-            currentPlatform == SharePlatform.WENSHUSHU
+            currentPlatform == SharePlatform.WENSHUSHU ||
+            currentPlatform == SharePlatform.CLOUD189
 
     val canSave: Boolean
         get() = currentPlatform == SharePlatform.QUARK ||
@@ -529,6 +532,7 @@ class ResolveViewModel(
         SharePlatform.C139 -> c139AccountRepository.getAccount()?.cookie.orEmpty()
         SharePlatform.PAN123 -> pan123AccountRepository.getAccount()?.accessToken.orEmpty()
         SharePlatform.LANZOU -> simpleAccountRepository.getAccount(SimpleNetdisk.LANZOU)?.cookie.orEmpty()
+        SharePlatform.CLOUD189 -> simpleAccountRepository.getAccount(SimpleNetdisk.CLOUD189)?.cookie.orEmpty()
         SharePlatform.COWTRANSFER -> ""
         SharePlatform.FEIJI -> ""
         SharePlatform.ILANZOU -> ""
@@ -549,6 +553,7 @@ class ResolveViewModel(
         SharePlatform.ILANZOU -> ilanzouResolveRepository
         SharePlatform.CTFILE -> ctfileResolveRepository
         SharePlatform.WENSHUSHU -> wenshushuResolveRepository
+        SharePlatform.CLOUD189 -> cloud189ResolveRepository
         else -> resolveRepository
     }
 
@@ -559,7 +564,7 @@ class ResolveViewModel(
         SharePlatform.C139 -> "0"
         SharePlatform.PAN123 -> "0"
         SharePlatform.LANZOU, SharePlatform.COWTRANSFER, SharePlatform.FEIJI, SharePlatform.ILANZOU,
-        SharePlatform.CTFILE, SharePlatform.WENSHUSHU -> "0"
+        SharePlatform.CTFILE, SharePlatform.WENSHUSHU, SharePlatform.CLOUD189 -> "0"
         else -> QuarkConstants.DEFAULT_PDIR_FID
     }
 
@@ -575,6 +580,7 @@ class ResolveViewModel(
         SharePlatform.FEIJI -> "小飞机网盘"
         SharePlatform.CTFILE -> "城通网盘"
         SharePlatform.WENSHUSHU -> "文叔叔"
+        SharePlatform.CLOUD189 -> "天翼云盘"
         else -> "夸克网盘"
     }
 
@@ -750,6 +756,7 @@ class ResolveViewModel(
         val isIlanzou = currentPlatform == SharePlatform.ILANZOU
         val isCtfile = currentPlatform == SharePlatform.CTFILE
         val isWss = currentPlatform == SharePlatform.WENSHUSHU
+        val isCloud189 = currentPlatform == SharePlatform.CLOUD189
         val platform = when {
             isXunlei -> DownloadPlatform.XUNLEI
             isUC -> DownloadPlatform.UC
@@ -762,6 +769,7 @@ class ResolveViewModel(
             isIlanzou -> DownloadPlatform.ILANZOU
             isCtfile -> DownloadPlatform.CTFILE
             isWss -> DownloadPlatform.WENSHUSHU
+            isCloud189 -> DownloadPlatform.CLOUD189
             else -> DownloadPlatform.QUARK
         }
         val effectiveCredential = when (currentPlatform) {
@@ -776,6 +784,7 @@ class ResolveViewModel(
             )
             isCow || isFeiji || isIlanzou -> mapOf("User-Agent" to LanzouApi.USER_AGENT)
             isCtfile || isWss -> mapOf("User-Agent" to LanzouApi.USER_AGENT)
+            isCloud189 -> mapOf("User-Agent" to com.yunx.app.data.network.Cloud189Api.USER_AGENT)
             isXunlei -> mapOf("User-Agent" to XunleiConstants.APP_UA)
             isBaidu -> mapOf(
                 "Cookie" to credential,
@@ -867,6 +876,7 @@ class ResolveViewModel(
         private val feijiResolveRepository: WsDiskResolveRepository,
         private val ilanzouResolveRepository: WsDiskResolveRepository,
         private val ctfileResolveRepository: CtfileResolveRepository,
+        private val cloud189ResolveRepository: Cloud189ResolveRepository,
         private val wenshushuResolveRepository: WenshushuResolveRepository,
         private val downloadManager: DownloadManager,
         private val bookmarkDao: BookmarkDao,
@@ -888,6 +898,7 @@ class ResolveViewModel(
                 feijiResolveRepository,
                 ilanzouResolveRepository,
                 ctfileResolveRepository,
+                cloud189ResolveRepository,
                 wenshushuResolveRepository,
                 downloadManager,
                 bookmarkDao,

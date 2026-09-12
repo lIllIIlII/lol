@@ -10,6 +10,7 @@ object SimpleNetdisk {
     const val FEIJI = "feiji"
     const val CTFILE = "ctfile"
     const val WENSHUSHU = "wenshushu"
+    const val CLOUD189 = "cloud189"
 }
 
 class SimpleAccountRepository(

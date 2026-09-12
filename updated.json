@@ -1,7 +1,7 @@
 {
-  "version": "1.6.0",
-  "date": "2026-09-11",
-  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.6.0/XiXiAt_1.6.0.apk",
-  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.6.0/XiXiAt_1.6.0.apk",
-  "notes": "v1.6.0：移除蜂窝式视图，网盘页统一列表卡片布局；修复蓝奏云解析（识别 lanpw/lanpv/lanzn 等随机家族域名，容灾列表扩充至 18 个存活节点）；修复蓝奏云登录地址（accounts.woozooo.com）与奶牛快传登录地址（/login）；新增城通网盘、文叔叔登录入口（含验证码/扫码与 localStorage 凭证捕获）；蓝奏云/奶牛快传/小飞机/城通/文叔叔登录后点击卡片直接进入网盘页面，不再展示 Cookie；账号管理弹窗隐私优化；源码全量去注释。"
+  "version": "1.7.0",
+  "date": "2026-09-12",
+  "url": "https://gh-proxy.com/https://github.com/lIllIIlII/lol/releases/download/v1.7.0/XiXiAt_1.7.0.apk",
+  "mirror": "https://github.com/lIllIIlII/lol/releases/download/v1.7.0/XiXiAt_1.7.0.apk",
+  "notes": "v1.7.0：修复蓝奏云解析（域名家族扩充至 100+ 节点，覆盖 lanzou*/lanpw/lanpv/lanzn/wwurl/wwork 全部变体）；新增天翼云盘（cloud.189.cn）解析与登录入口；新增对应 Cookie 登录页（WebView + 手动输入）；优化解析与列表加载流畅度；更换 APP 图标；源码无注释。"
 }

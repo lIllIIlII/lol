@@ -85,6 +85,7 @@ import com.yunx.app.data.repository.Pan123ResolveRepository
 import com.yunx.app.data.repository.QuarkAccountRepository
 import com.yunx.app.data.repository.QuarkResolveRepository
 import com.yunx.app.data.repository.CowTransferResolveRepository
+import com.yunx.app.data.repository.Cloud189ResolveRepository
 import com.yunx.app.data.repository.LanzouResolveRepository
 import com.yunx.app.data.repository.CtfileResolveRepository
 import com.yunx.app.data.repository.WenshushuResolveRepository
@@ -151,6 +152,7 @@ fun MainScreen() {
     var currentTab by rememberSaveable { mutableStateOf(MainTab.Resolve) }
     var showQuarkLogin by rememberSaveable { mutableStateOf(false) }
     var showLanzouLogin by rememberSaveable { mutableStateOf(false) }
+    var showCloud189Login by rememberSaveable { mutableStateOf(false) }
     var showCowLogin by rememberSaveable { mutableStateOf(false) }
     var showFeijiLogin by rememberSaveable { mutableStateOf(false) }
     var showCtfileLogin by rememberSaveable { mutableStateOf(false) }
@@ -221,6 +223,9 @@ fun MainScreen() {
     }
     val lanzouResolveRepository = remember { LanzouResolveRepository(
         cookieProvider = { simpleRepository.getAccount(com.yunx.app.data.repository.SimpleNetdisk.LANZOU)?.cookie }
+    ) }
+    val cloud189ResolveRepository = remember { Cloud189ResolveRepository(
+        cookieProvider = { simpleRepository.getAccount(com.yunx.app.data.repository.SimpleNetdisk.CLOUD189)?.cookie }
     ) }
     val cowTransferResolveRepository = remember { CowTransferResolveRepository() }
     val feijiResolveRepository = remember { WsDiskResolveRepository(WsDiskApi.FEIJI) }
@@ -413,6 +418,7 @@ fun MainScreen() {
             feijiResolveRepository,
             ilanzouResolveRepository,
             ctfileResolveRepository,
+            cloud189ResolveRepository,
             wenshushuResolveRepository,
             downloadManager,
             db.bookmarkDao(),
@@ -435,6 +441,7 @@ fun MainScreen() {
         factory = SimpleAccountViewModel.Factory(simpleRepository)
     )
     val lanzouAccount by simpleViewModel.lanzouAccount.collectAsState()
+    val cloud189Account by simpleViewModel.cloud189Account.collectAsState()
     val cowAccount by simpleViewModel.cowAccount.collectAsState()
     val feijiAccount by simpleViewModel.feijiAccount.collectAsState()
     val ctfileAccount by simpleViewModel.ctfileAccount.collectAsState()
@@ -560,6 +567,16 @@ fun MainScreen() {
         return
     }
 
+    if (showCloud189Login) {
+        GenericWebViewLoginScreen(
+            config = GenericLoginConfigs.cloud189,
+            repository = simpleRepository,
+            onBack = { showCloud189Login = false },
+            onSaved = { showCloud189Login = false }
+        )
+        return
+    }
+
     if (showCowLogin) {
         GenericWebViewLoginScreen(
             config = GenericLoginConfigs.cowTransfer,
@@ -666,6 +683,7 @@ fun MainScreen() {
                         c139Account = c139Account,
                         pan123Account = pan123Account,
                         lanzouAccount = lanzouAccount,
+                        cloud189Account = cloud189Account,
                         cowAccount = cowAccount,
                         feijiAccount = feijiAccount,
                         ctfileAccount = ctfileAccount,
@@ -693,6 +711,8 @@ fun MainScreen() {
                         onPan123Logout = { pan123ViewModel.logout() },
                         onLanzouLogin = { showLanzouLogin = true },
                         onLanzouLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.LANZOU) },
+                        onCloud189Login = { showCloud189Login = true },
+                        onCloud189Logout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.CLOUD189) },
                         onCowLogin = { showCowLogin = true },
                         onCowLogout = { simpleViewModel.logout(com.yunx.app.data.repository.SimpleNetdisk.COWTRANSFER) },
                         onFeijiLogin = { showFeijiLogin = true },

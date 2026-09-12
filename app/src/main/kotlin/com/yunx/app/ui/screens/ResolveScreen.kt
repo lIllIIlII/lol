@@ -458,6 +458,7 @@ private fun platformLabel(platform: SharePlatform): String = when (platform) {
     SharePlatform.FEIJI -> "小飞机网盘"
     SharePlatform.CTFILE -> "城通网盘"
     SharePlatform.WENSHUSHU -> "文叔叔"
+    SharePlatform.CLOUD189 -> "天翼云盘"
 }
 
 @Composable

@@ -13,5 +13,6 @@ object DownloadPlatform {
     const val ILANZOU = "ilanzou"
     const val CTFILE = "ctfile"
     const val WENSHUSHU = "wenshushu"
+    const val CLOUD189 = "cloud189"
     const val GENERIC = "generic"
 }

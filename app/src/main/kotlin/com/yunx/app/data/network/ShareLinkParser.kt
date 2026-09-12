@@ -1,6 +1,6 @@
 package com.yunx.app.data.network
 
-enum class SharePlatform { QUARK, UC, XUNLEI, BAIDU, C139, PAN123, LANZOU, ILANZOU, COWTRANSFER, FEIJI, CTFILE, WENSHUSHU }
+enum class SharePlatform { QUARK, UC, XUNLEI, BAIDU, C139, PAN123, LANZOU, ILANZOU, COWTRANSFER, FEIJI, CTFILE, WENSHUSHU, CLOUD189 }
 
 data class ParsedShare(
     val shareId: String,
@@ -24,7 +24,11 @@ object ShareLinkParser {
         RegexOption.IGNORE_CASE
     )
     private val lanzouShareIdRegex = Regex(
-        """(?:[0-9A-Za-z]+\.)?(?:lanzo[u]?[a-z]{0,2}|lan(?:pw|pv|zn|zr))\.(?:com|cn|net)/(?:s/)?([A-Za-z][0-9A-Za-z_-]{4,})""",
+        """(?:[0-9A-Za-z]+\.)?(?:lanzo[u]?[a-z]{0,2}|lan(?:pw|pv|zn|zr)|wwurl|wurl|wwork)\.(?:com|cn|net|cc|me)(?:/[a-zA-Z]+)?/(?:s/)?([A-Za-z][0-9A-Za-z_-]{4,})""",
+        RegexOption.IGNORE_CASE
+    )
+    private val cloud189ShareIdRegex = Regex(
+        """cloud\.189\.cn/(?:t/|share\.html\?id=)?([A-Za-z0-9_-]{6,})""",
         RegexOption.IGNORE_CASE
     )
     private val cowShareIdRegex = Regex("""cowtransfer\.com/s/([0-9A-Za-z-]{10,})""", RegexOption.IGNORE_CASE)
@@ -99,6 +103,12 @@ object ShareLinkParser {
             val pwd = pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)
                 ?: pwdInTextRegex.find(text)?.groupValues?.getOrNull(1)
             return ParsedShare(shareId = sid, pwd = pwd, platform = SharePlatform.LANZOU)
+        }
+        cloud189ShareIdRegex.find(url)?.groupValues?.getOrNull(1)?.let { sid ->
+            if (sid.length < 6) return@let
+            val pwd = pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)
+                ?: pwdInTextRegex.find(text)?.groupValues?.getOrNull(1)
+            return ParsedShare(shareId = sid, pwd = pwd, platform = SharePlatform.CLOUD189)
         }
         cowShareIdRegex.find(url)?.groupValues?.getOrNull(1)?.let { sid ->
             val pwd = pwdInUrlRegex.find(url)?.groupValues?.getOrNull(1)

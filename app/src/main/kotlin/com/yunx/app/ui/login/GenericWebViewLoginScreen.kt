@@ -112,6 +112,14 @@ object GenericLoginConfigs {
         localStorageProbe = "(function(){var h=[];try{for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);var v=localStorage.getItem(k);if(k&&v&&v.length>20&&/token|auth/i.test(k)){h.push(k+'='+v);}}}catch(e){}return h.join('; ');})()",
         tutorial = "1. 在页面中使用手机号验证码或微信扫码完成登录\n2. 登录成功后会自动保存，也可点击右上角「保存」\n3. 登录后在网盘页点击文叔叔卡片即可进入网盘\n\n说明：不登录也可直接解析文叔叔分享链接，登录仅用于在应用内管理文件。"
     )
+    val cloud189 = GenericLoginConfig(
+        platform = SimpleNetdisk.CLOUD189,
+        title = "天翼云盘登录",
+        loginUrl = "https://cloud.189.cn/api/189store/pc/login/index.htm",
+        cookieUrls = listOf("https://cloud.189.cn/", "https://api.cloud.189.cn/", "https://pc.189.cn/"),
+        cookieKeys = listOf("SessionID", "session", "COOKIE", "user_info", "SSON", "LT", "CUSTOMER"),
+        tutorial = "1. 在页面中输入天翼云盘账号密码完成登录\n2. 登录成功后会自动保存，也可点击右上角「保存」\n3. 登录后在网盘页点击天翼云盘卡片即可进入网盘\n\n说明：不登录也可直接解析天翼云盘公开分享链接，登录可解析私密分享并提升可靠性。"
+    )
 }
 
 @SuppressLint("SetJavaScriptEnabled")

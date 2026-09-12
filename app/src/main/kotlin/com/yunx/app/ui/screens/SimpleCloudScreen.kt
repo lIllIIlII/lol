@@ -65,6 +65,10 @@ object SimpleCloudSites {
         title = "文叔叔",
         homeUrl = "https://www.wenshushu.cn/"
     )
+    val CLOUD189 = SimpleCloudSite(
+        title = "天翼云盘",
+        homeUrl = "https://cloud.189.cn/web/share/"
+    )
 
     fun forPlatform(platform: String): SimpleCloudSite? = when (platform) {
         "lanzou" -> LANZOU
@@ -72,6 +76,7 @@ object SimpleCloudSites {
         "feiji" -> FEIJI
         "ctfile" -> CTFILE
         "wenshushu" -> WENSHUSHU
+        "cloud189" -> CLOUD189
         else -> null
     }
 }
